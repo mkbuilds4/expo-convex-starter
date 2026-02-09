@@ -1,0 +1,12 @@
+---
+description: React Native and Expo styling conventions
+globs: "**/*.tsx"
+alwaysApply: false
+---
+
+# React Native styling
+
+- Use `StyleSheet.create()` for style objects; keep styles next to the component or in the same file.
+- Prefer theme and shared components over local StyleSheets for colors, spacing, and typography.
+- Use the `style` prop for one-off overrides; pass theme values (e.g. `spacing.lg`) not raw numbers when overriding layout.
+- For new UI, import from `./components` and `./lib/theme`; avoid redefining the same colors or dimensions that already exist in the theme.

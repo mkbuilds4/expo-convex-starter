@@ -2,6 +2,7 @@ import { registerRootComponent } from 'expo';
 import { ConvexReactClient } from 'convex/react';
 import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react';
 import { authClient } from './lib/auth-client';
+import { ThemeProvider } from './lib/theme-context';
 
 import App from './App';
 
@@ -12,9 +13,11 @@ const convex = new ConvexReactClient(
 
 function Root() {
   return (
-    <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-      <App />
-    </ConvexBetterAuthProvider>
+    <ThemeProvider>
+      <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+        <App />
+      </ConvexBetterAuthProvider>
+    </ThemeProvider>
   );
 }
 

@@ -1,0 +1,30 @@
+---
+description: Use shared theme and UI components for a consistent look
+globs: "**/*.tsx"
+alwaysApply: false
+---
+
+# UI consistency
+
+Use the project’s theme and components for all UI so the app looks consistent.
+
+## Theme (`lib/theme.ts`)
+
+- **Colors**: Only 6 tokens—use `colors.*` only. Do not add or hardcode colors.
+  - `background`, `surface` (cards/inputs/buttons), `text`, `muted` (secondary/links/placeholders), `error`, `primary` (main accent).
+- **Spacing**: Use `spacing.*` (xs, sm, md, lg, xl, xxl) for margins and padding.
+- **Radii**: Use `radii.*` (sm, md, lg) for border radius.
+- **Typography**: Use `typography.*` when defining text styles; prefer the `Text` component variants instead.
+
+## Components (`components/`)
+
+- **Card**: Use `<Card>` for any raised/contained block (forms, content blocks). Use `compact` for tighter padding.
+- **Button**: Use `<Button>` with `variant="primary" | "link" | "danger"`. Use `loading` for async actions.
+- **Input**: Use `<Input>` for text fields (placeholder color and styling come from theme).
+- **Text**: Use `<Text variant="...">` for all text. Variants: `title`, `subtitle`, `cardTitle`, `body`, `bodySmall`, `caption`, `error`, `link`.
+
+## Rules
+
+1. Do not add new inline colors or magic numbers for spacing/radius; add tokens to `lib/theme.ts` if needed.
+2. New screens or forms should use `Card`, `Button`, `Input`, and `Text` from `components`.
+3. Style overrides should still use theme values: `style={{ marginTop: spacing.sm }}` not `marginTop: 8`.
