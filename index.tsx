@@ -1,5 +1,7 @@
 import { registerRootComponent } from 'expo';
-import { ConvexProvider, ConvexReactClient } from 'convex/react';
+import { ConvexReactClient } from 'convex/react';
+import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react';
+import { authClient } from './lib/auth-client';
 
 import App from './App';
 
@@ -10,9 +12,9 @@ const convex = new ConvexReactClient(
 
 function Root() {
   return (
-    <ConvexProvider client={convex}>
+    <ConvexBetterAuthProvider client={convex} authClient={authClient}>
       <App />
-    </ConvexProvider>
+    </ConvexBetterAuthProvider>
   );
 }
 

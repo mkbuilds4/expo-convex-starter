@@ -2,6 +2,7 @@
   "expo": {
     "name": "ndnd",
     "slug": "ndnd",
+    "scheme": "ndnd",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
