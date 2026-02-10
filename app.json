@@ -1,13 +1,14 @@
 {
   "expo": {
-    "name": "ndnd",
-    "slug": "ndnd",
-    "scheme": "ndnd",
+    "name": "Expo Convex Starter",
+    "slug": "expo-convex-starter",
+    "scheme": "expostarter",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "plugins": ["expo-router"],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",

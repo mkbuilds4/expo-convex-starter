@@ -24,6 +24,10 @@ export function ThemeToggle() {
               styles.pill,
               { backgroundColor: selected ? colors.primary : colors.surface },
             ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            accessibilityLabel={`Theme: ${label}`}
+            accessibilityHint={selected ? `${label} theme is selected` : `Set theme to ${label}`}
           >
             <Text style={[styles.label, { color: selected ? colors.onPrimary : colors.muted }]}>
               {label}

@@ -11,7 +11,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth);
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
   return betterAuth({
     trustedOrigins: [
-      "ndnd://",
+      "expostarter://",
       // Expo Go / development (exp://IP:port)
       "exp://",
     ],

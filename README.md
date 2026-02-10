@@ -1,6 +1,6 @@
-# ndnd
+# Expo Convex Starter
 
-Expo / React Native app for iOS, Android, and web. Backend: [Convex](https://convex.dev).
+Expo / React Native **template** for iOS, Android, and web. Auth (Better Auth), theme, navigation, and a small Convex backend example. Clone or use as a template to build your app.
 
 ## Link Convex (first-time setup)
 
@@ -39,6 +39,27 @@ Same Wi‑Fi as your computer is required.
 - **Android emulator:** `npm run android`
 - **Web:** `npm run web`
 
+## EAS Build (installable apps)
+
+1. Install EAS CLI: `npm install -g eas-cli` and log in with `eas login`.
+2. Configure the project (first time): `eas build:configure`.
+3. Set env vars for the build (e.g. in EAS dashboard or `eas.json` under `build.*.env`):
+   - `EXPO_PUBLIC_CONVEX_URL` (and `EXPO_PUBLIC_CONVEX_SITE_URL` if you use auth) so the built app can reach your Convex backend.
+4. Run a build:
+   - **Preview (internal):** `eas build --profile preview --platform ios` or `--platform android`
+   - **Production:** `eas build --profile production --platform all`
+
+See [Expo Application Services](https://docs.expo.dev/build/introduction/) for more.
+
+## Deep linking
+
+The app scheme is `expostarter` (see `app.json` → `expo.scheme`). Example links:
+
+- **Password reset (example route):** `expostarter://reset-password?token=YOUR_TOKEN`
+- **Auth / OAuth callbacks:** Use `expostarter://` (or your custom scheme) as the redirect URI when configuring Better Auth or OAuth providers.
+
+Routes are defined under `app/` (Expo Router). The `reset-password` screen demonstrates reading query params via `useLocalSearchParams()`.
+
 ## Edit
 
-Main app entry is `App.tsx` in the project root.
+The app uses **Expo Router** (file-based routing). Entry is `app/_layout.tsx`; screens live under `app/`, e.g. `app/(tabs)/index.tsx` (Home), `app/(auth)/sign-in.tsx`, `app/reset-password.tsx`.

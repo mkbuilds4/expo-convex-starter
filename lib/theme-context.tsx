@@ -11,7 +11,7 @@ import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { darkColors, lightColors, type ColorPalette } from './theme';
 
-const STORAGE_KEY = '@ndnd/color-scheme';
+const STORAGE_KEY = '@expo-convex-starter/color-scheme';
 
 export type ColorSchemePreference = 'light' | 'dark' | 'system';
 

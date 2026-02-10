@@ -3,7 +3,7 @@ import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { expoClient } from "@better-auth/expo/client";
 import * as SecureStore from "expo-secure-store";
 
-const scheme = "ndnd";
+const scheme = "expostarter";
 
 export const authClient = createAuthClient({
   baseURL: process.env.EXPO_PUBLIC_CONVEX_SITE_URL,
