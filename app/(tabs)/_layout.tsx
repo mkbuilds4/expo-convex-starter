@@ -2,10 +2,12 @@ import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useConvexAuth } from 'convex/react';
+import { useTheme } from '../../lib/theme-context';
 
 export default function TabsLayout() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const { colors } = useTheme();
 
   useEffect(() => {
     if (isLoading) return;
@@ -13,7 +15,14 @@ export default function TabsLayout() {
   }, [isAuthenticated, isLoading, router]);
 
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: { backgroundColor: colors.surface },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.muted,
+      }}
+    >
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarLabel: 'Home' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarLabel: 'Profile' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarLabel: 'Settings' }} />

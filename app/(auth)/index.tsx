@@ -1,12 +1,14 @@
 import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { spacing } from '../../lib/theme';
 import { Button, Text } from '../../components';
 
 export default function AuthLanding() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.top}>
         <Text variant="cardTitle" style={styles.title}>
           Welcome

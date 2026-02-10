@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, KeyboardAvoidingView, Platform, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authClient } from '../lib/auth-client';
 import { spacing, radii } from '../lib/theme';
 import { Button, Input, Text } from '../components';
@@ -56,8 +57,9 @@ function formatAuthError(message: string): string {
 }
 
 export function LandingScreen({ onSignIn, onSignUp }: { onSignIn: () => void; onSignUp: () => void }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.authScreen}>
+    <View style={[styles.authScreen, { paddingTop: insets.top }]}>
       <View style={styles.landingTop}>
         <Text variant="cardTitle" style={styles.landingTitle}>
           Welcome
@@ -163,8 +165,9 @@ export function SignInSignUp({
     }
   };
 
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.authScreen}>
+    <View style={[styles.authScreen, { paddingTop: insets.top }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -186,7 +189,7 @@ export function SignInSignUp({
               accessibilityLabel="Go back"
               accessibilityHint="Returns to the previous screen"
             >
-              <Text variant="caption" style={styles.backArrow}>
+              <Text variant="caption" style={[styles.backArrow, { color: colors.muted }]}>
                 ←
               </Text>
             </Pressable>

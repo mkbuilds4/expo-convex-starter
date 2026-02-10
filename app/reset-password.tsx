@@ -1,4 +1,5 @@
 import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../lib/theme-context';
 import { spacing } from '../lib/theme';
@@ -10,11 +11,12 @@ import { Card, Text } from '../components';
  * (Replace expostarter with your app scheme from app.json.)
  */
 export default function ResetPasswordScreen() {
+  const insets = useSafeAreaInsets();
   const { token } = useLocalSearchParams<{ token?: string }>();
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <Card style={styles.card}>
         <Text variant="cardTitle" style={styles.title}>
           Reset password

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import Toast, { SuccessToast, ErrorToast } from 'react-native-toast-message';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -42,11 +43,13 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-          <RootLayoutContent />
-        </ConvexBetterAuthProvider>
-      </ThemeProvider>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+            <RootLayoutContent />
+          </ConvexBetterAuthProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
