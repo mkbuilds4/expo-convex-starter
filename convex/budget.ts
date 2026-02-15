@@ -194,6 +194,51 @@ export const removeCategory = mutation({
       .withIndex('by_category', (q) => q.eq('categoryId', id))
       .collect();
     for (const a of assignments) await ctx.db.delete(a._id);
+    const transactions = await ctx.db
+      .query('transactions')
+      .withIndex('by_category', (q) => q.eq('categoryId', id))
+      .collect();
+    for (const t of transactions) await ctx.db.patch(t._id, { categoryId: undefined });
+    const goals = await ctx.db
+      .query('goals')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect();
+    for (const g of goals) {
+      if (g.categoryId === id) await ctx.db.patch(g._id, { categoryId: undefined });
+    }
     await ctx.db.delete(id);
+  },
+});
+
+/** Remove all categories in a group (room). */
+export const removeGroup = mutation({
+  args: { groupName: v.string() },
+  handler: async (ctx, { groupName }) => {
+    const userId = await requireUserId(ctx);
+    const categories = await ctx.db
+      .query('budgetCategories')
+      .withIndex('by_user_order', (q) => q.eq('userId', userId))
+      .collect();
+    const toDelete = categories.filter((c) => c.groupName === groupName.trim());
+    for (const cat of toDelete) {
+      const assignments = await ctx.db
+        .query('budgetAssignments')
+        .withIndex('by_category', (q) => q.eq('categoryId', cat._id))
+        .collect();
+      for (const a of assignments) await ctx.db.delete(a._id);
+      const transactions = await ctx.db
+        .query('transactions')
+        .withIndex('by_category', (q) => q.eq('categoryId', cat._id))
+        .collect();
+      for (const t of transactions) await ctx.db.patch(t._id, { categoryId: undefined });
+      const goals = await ctx.db
+        .query('goals')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .collect();
+      for (const g of goals) {
+        if (g.categoryId === cat._id) await ctx.db.patch(g._id, { categoryId: undefined });
+      }
+      await ctx.db.delete(cat._id);
+    }
   },
 });

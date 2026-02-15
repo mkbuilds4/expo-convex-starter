@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -19,6 +19,8 @@ export default function BudgetScreen() {
   const setAssignment = useMutation(api.budget.setAssignment);
   const addToAssignment = useMutation(api.budget.addToAssignment);
   const createCategory = useMutation(api.budget.createCategory);
+  const removeCategory = useMutation(api.budget.removeCategory);
+  const removeGroup = useMutation(api.budget.removeGroup);
 
   const [editingCategory, setEditingCategory] = useState<Id<'budgetCategories'> | null>(null);
   const [assignAmount, setAssignAmount] = useState('');
@@ -74,6 +76,51 @@ export default function BudgetScreen() {
     }
   };
 
+  const handleRemoveCategory = (categoryId: Id<'budgetCategories'>, categoryName: string) => {
+    Alert.alert(
+      'Remove room?',
+      `"${categoryName}" will be removed. Assignments and transaction links to this category will be cleared.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeCategory({ id: categoryId });
+              setEditingCategory(null);
+              Toast.show({ type: 'success', text1: 'Room removed' });
+            } catch (e) {
+              Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Failed' });
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRemoveGroup = (groupName: string, count: number) => {
+    Alert.alert(
+      'Remove whole group?',
+      `"${groupName}" and all ${count} categor${count === 1 ? 'y' : 'ies'} in it will be removed. Assignments and transaction links will be cleared.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove group',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeGroup({ groupName });
+              Toast.show({ type: 'success', text1: 'Group removed' });
+            } catch (e) {
+              Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Failed' });
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <ScrollView
       style={[styles.screen, { backgroundColor: colors.background }]}
@@ -107,9 +154,21 @@ export default function BudgetScreen() {
 
       {Object.entries(byGroup).map(([groupName, cats]) => (
         <View key={groupName} style={styles.section}>
-          <Text variant="caption" style={[styles.wingLabel, { color: colors.muted }]}>
-            {groupName}
-          </Text>
+          <View style={styles.groupHeader}>
+            <Text variant="caption" style={[styles.wingLabel, { color: colors.muted }]}>
+              {groupName}
+            </Text>
+            <Pressable
+              onPress={() => handleRemoveGroup(groupName, cats.length)}
+              style={[styles.removeGroupBtn, { backgroundColor: colors.surface }]}
+              hitSlop={8}
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.muted} />
+              <Text variant="caption" style={{ color: colors.muted, marginLeft: spacing.xs }}>
+                Remove group
+              </Text>
+            </Pressable>
+          </View>
           {cats.map((c) => (
             <RoomCard
               key={c._id}
@@ -123,6 +182,7 @@ export default function BudgetScreen() {
               onCancelEdit={() => setEditingCategory(null)}
               onStartEdit={() => setEditingCategory(c._id)}
               onQuickAssign={(amount) => handleQuickAssign(c._id, amount)}
+              onRemove={() => handleRemoveCategory(c._id, c.name)}
             />
           ))}
         </View>
@@ -187,11 +247,23 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   section: { paddingHorizontal: spacing.lg, marginBottom: spacing.xl },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
   wingLabel: {
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.xs,
+  },
+  removeGroupBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.sm,
   },
   card: { borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
 });

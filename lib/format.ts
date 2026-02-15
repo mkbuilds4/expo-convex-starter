@@ -42,3 +42,52 @@ export function getTimeGreeting(): string {
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 }
+
+/**
+ * Parse payment due date from user input.
+ * - "15" or "20" → next occurrence of that day (YYYY-MM-DD)
+ * - "2026-02-15" → returned as-is if valid
+ * Returns undefined if input is empty or invalid.
+ */
+export function parsePaymentDueDate(input: string): string | undefined {
+  const trimmed = input.trim();
+  if (!trimmed) return undefined;
+  const fullDateMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (fullDateMatch) {
+    const [, y, m, d] = fullDateMatch.map(Number);
+    const date = new Date(y, m - 1, d);
+    if (date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d) {
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+    return undefined;
+  }
+  const day = parseInt(trimmed, 10);
+  if (Number.isNaN(day) || day < 1 || day > 31) return undefined;
+  const now = new Date();
+  let year = now.getFullYear();
+  let month = now.getMonth();
+  if (day <= now.getDate()) month += 1;
+  if (month > 11) {
+    month = 0;
+    year += 1;
+  }
+  const d = Math.min(day, new Date(year, month + 1, 0).getDate());
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+/** Section label for transaction list: "Today", "Yesterday", or "Mon, Feb 15" */
+export function formatTransactionDateLabel(dateStr: string): string {
+  const parts = dateStr.split('-').map(Number);
+  const y = parts[0];
+  const m = parts[1] ?? 1;
+  const d = parts[2] ?? 1; // YYYY-MM uses day 1
+  const date = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  date.setHours(0, 0, 0, 0);
+  if (date.getTime() === today.getTime()) return 'Today';
+  if (date.getTime() === yesterday.getTime()) return 'Yesterday';
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}

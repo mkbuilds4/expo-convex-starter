@@ -17,6 +17,8 @@ export type RoomCardProps = {
   onCancelEdit: () => void;
   onStartEdit: () => void;
   onQuickAssign: (cents: number) => void;
+  /** When provided, shows a delete control to remove this room/category */
+  onRemove?: () => void;
 };
 
 export function RoomCard({
@@ -30,6 +32,7 @@ export function RoomCard({
   onCancelEdit,
   onStartEdit,
   onQuickAssign,
+  onRemove,
 }: RoomCardProps) {
   const { colors } = useTheme();
   const available = assigned - spent;
@@ -69,6 +72,15 @@ export function RoomCard({
               {isOverspent ? 'This room is over budget' : isSparse ? 'This room has space' : 'On track'}
             </Text>
           </View>
+          {onRemove ? (
+            <Pressable
+              onPress={onRemove}
+              style={[styles.removeBtn, { backgroundColor: colors.background }]}
+              hitSlop={8}
+            >
+              <Ionicons name="trash-outline" size={18} color={colors.muted} />
+            </Pressable>
+          ) : null}
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text variant="caption" style={{ color: colors.muted }}>
@@ -213,5 +225,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: radii.sm,
+  },
+  removeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

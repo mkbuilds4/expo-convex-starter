@@ -20,6 +20,16 @@ export const list = query({
   },
 });
 
+export const get = query({
+  args: { id: v.id('accounts') },
+  handler: async (ctx, { id }) => {
+    const userId = await requireUserId(ctx);
+    const acc = await ctx.db.get(id);
+    if (!acc || acc.userId !== userId) return null;
+    return acc;
+  },
+});
+
 export const listOnBudget = query({
   args: {},
   handler: async (ctx) => {
@@ -42,6 +52,7 @@ export const create = mutation({
     isOnBudget: v.boolean(),
     interestRate: v.optional(v.number()),
     minimumPayment: v.optional(v.number()),
+    nextPaymentDueDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -61,6 +72,7 @@ export const create = mutation({
       sortOrder,
       interestRate: args.interestRate,
       minimumPayment: args.minimumPayment,
+      nextPaymentDueDate: args.nextPaymentDueDate,
     });
   },
 });

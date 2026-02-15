@@ -1,17 +1,22 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, KeyboardAvoidingView, Platform, Linking } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, KeyboardAvoidingView, Platform, Linking, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useMutation, useAction } from 'convex/react';
-import { api } from '../../convex/_generated/api';
-import type { Id, Doc } from '../../convex/_generated/dataModel';
-import { useTheme } from '../../lib/theme-context';
-import { spacing, radii } from '../../lib/theme';
-import { formatCurrency, parseAmountToCents } from '../../lib/format';
-import { Text, Button, Input } from '../../components';
+import { api } from '../../../convex/_generated/api';
+import type { Id, Doc } from '../../../convex/_generated/dataModel';
+import { useTheme } from '../../../lib/theme-context';
+import { spacing, radii } from '../../../lib/theme';
+import { formatCurrency, parseAmountToCents, parsePaymentDueDate } from '../../../lib/format';
+import { Text, Button, Input } from '../../../components';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+
+const LEDGER_BG = '#000000';
+const LEDGER_AMBER = '#FFCC00';
+const LEDGER_AMBER_DIM = '#B38600';
+const LEDGER_FONT = Platform.select({ ios: 'Menlo', android: 'monospace' });
 
 const ACCOUNT_TYPES = [
   { type: 'depository', subtype: 'checking', label: 'Checking', icon: 'wallet-outline' as const },
@@ -23,7 +28,8 @@ const ACCOUNT_TYPES = [
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, resolvedScheme } = useTheme();
+  const isDark = resolvedScheme === 'dark';
   const accounts = useQuery(api.accounts.list) ?? [];
   const createAccount = useMutation(api.accounts.create);
   const updateBalance = useMutation(api.accounts.updateBalance);
@@ -40,6 +46,7 @@ export default function AccountsScreen() {
   const [plaidLinking, setPlaidLinking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [extractPhase, setExtractPhase] = useState<'idle' | 'uploading' | 'extracting'>('idle');
   const [name, setName] = useState('');
   const [balance, setBalance] = useState('');
   const [selectedType, setSelectedType] = useState(ACCOUNT_TYPES[0]);
@@ -50,6 +57,8 @@ export default function AccountsScreen() {
   const [editDebtAccount, setEditDebtAccount] = useState<Doc<'accounts'> | null>(null);
   const [editRate, setEditRate] = useState('');
   const [editMinPay, setEditMinPay] = useState('');
+  const [paymentDueDate, setPaymentDueDate] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
 
   const isDebtAccount = selectedType.type === 'credit' || selectedType.type === 'loan';
 
@@ -77,8 +86,17 @@ export default function AccountsScreen() {
     setShowManualEntry(true);
   };
 
+  const showPdfNotSupportedAlert = () => {
+    Alert.alert(
+      'PDF not supported yet',
+      'We can\'t read account details from PDFs yet. To add an account from a statement:\n\n• Take a screenshot of the page that shows the account name and balance (or amount owed).\n• Come back here and tap "Upload screenshot or statement" → "Choose from library" and select that screenshot.',
+      [{ text: 'Got it' }]
+    );
+  };
+
   const uploadAndExtract = async (fileUri: string, mimeType: string) => {
     setExtracting(true);
+    setExtractPhase('uploading');
     try {
       const uploadUrl = await generateUploadUrl();
       const response = await fetch(fileUri);
@@ -90,13 +108,20 @@ export default function AccountsScreen() {
       });
       if (!postRes.ok) throw new Error('Upload failed');
       const { storageId } = (await postRes.json()) as { storageId: string };
+      setExtractPhase('extracting');
       const extracted = await extractAccountFromStatement({ storageId: storageId as Id<'_storage'> });
       applyExtracted(extracted);
       Toast.show({ type: 'success', text1: 'Details extracted — review and save' });
     } catch (e) {
-      Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Extraction failed' });
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.toLowerCase().includes('pdf') || msg.includes('screenshot')) {
+        showPdfNotSupportedAlert();
+      } else {
+        Toast.show({ type: 'error', text1: msg || 'Extraction failed' });
+      }
     } finally {
       setExtracting(false);
+      setExtractPhase('idle');
     }
   };
 
@@ -106,6 +131,7 @@ export default function AccountsScreen() {
     const cents = parseAmountToCents(balance || '0');
     const rate = interestRate.trim() ? parseFloat(interestRate) / 100 : undefined;
     const minPay = minimumPayment.trim() ? parseAmountToCents(minimumPayment) : undefined;
+    const dueDate = isDebtAccount ? parsePaymentDueDate(paymentDueDate) : undefined;
     try {
       await createAccount({
         name: trimmed,
@@ -115,11 +141,13 @@ export default function AccountsScreen() {
         isOnBudget: true,
         ...(isDebtAccount && rate !== undefined && !Number.isNaN(rate) && { interestRate: rate }),
         ...(isDebtAccount && minPay !== undefined && { minimumPayment: minPay }),
+        ...(isDebtAccount && dueDate && { nextPaymentDueDate: dueDate }),
       });
       setName('');
       setBalance('');
       setInterestRate('');
       setMinimumPayment('');
+      setPaymentDueDate('');
       setShowAdd(false);
       setShowManualEntry(false);
       Toast.show({ type: 'success', text1: 'Account added' });
@@ -177,45 +205,46 @@ export default function AccountsScreen() {
     if (!editDebtAccount) return;
     const rate = editRate.trim() ? parseFloat(editRate) / 100 : undefined;
     const minPay = editMinPay.trim() ? parseAmountToCents(editMinPay) : undefined;
+    const dueDate = editDueDate.trim() ? parsePaymentDueDate(editDueDate) : undefined;
     try {
       await updateAccount({
         id: editDebtAccount._id,
         interestRate: rate,
         minimumPayment: minPay,
+        nextPaymentDueDate: editDueDate.trim() === '' ? '' : dueDate,
       });
       setEditDebtAccount(null);
       setEditRate('');
       setEditMinPay('');
+      setEditDueDate('');
       Toast.show({ type: 'success', text1: 'Updated' });
     } catch (e) {
       Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Failed' });
     }
   };
 
+  const ledgerText = (style = {}) => ({ fontFamily: LEDGER_FONT, color: LEDGER_AMBER, ...style });
+  const ledgerDim = (style = {}) => ({ fontFamily: LEDGER_FONT, color: LEDGER_AMBER_DIM, ...style });
+  const ledgerLine = { height: 1, backgroundColor: LEDGER_AMBER, opacity: 0.4 };
+
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: LEDGER_BG }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[styles.header, { paddingBottom: spacing.lg }]}>
-          <View style={styles.headerTop}>
+        <View style={[styles.ledgerHeader, { paddingBottom: spacing.md }]}>
+          <View style={styles.ledgerHeaderRow}>
             <View>
-              <Text variant="title" style={{ color: colors.text }}>Accounts</Text>
-              <Text variant="subtitle" style={{ color: colors.muted, marginTop: 2 }}>
-                Balances and net worth
-              </Text>
+              <Text style={[ledgerText(), { fontSize: 16, letterSpacing: 1 }]}>ACCOUNTS</Text>
+              <Text style={[ledgerDim(), { fontSize: 12, marginTop: 2 }]}>Balances and net worth</Text>
             </View>
             <View style={styles.headerActions}>
               {accounts.some((a) => a.plaidItemId) && (
                 <Pressable
-                  style={({ pressed }) => [
-                    styles.headerIconBtn,
-                    { backgroundColor: colors.surface },
-                    pressed && { opacity: 0.8 },
-                  ]}
+                  style={({ pressed }) => [styles.ledgerBtn, pressed && { opacity: 0.7 }]}
                   onPress={async () => {
                     setRefreshing(true);
                     try {
@@ -232,189 +261,75 @@ export default function AccountsScreen() {
                   }}
                   disabled={refreshing}
                 >
-                  <Ionicons name="refresh" size={20} color={colors.primary} />
+                  <Text style={ledgerText({ fontSize: 12 })}>REFRESH</Text>
                 </Pressable>
               )}
               <Pressable
-                style={({ pressed }) => [
-                  styles.headerIconBtn,
-                  { backgroundColor: colors.primary },
-                  pressed && { opacity: 0.9 },
-                ]}
+                style={({ pressed }) => [styles.ledgerBtn, pressed && { opacity: 0.7 }]}
                 onPress={() => setShowAdd(true)}
               >
-                <Ionicons name="add" size={22} color={colors.onPrimary} />
+                <Text style={ledgerText({ fontSize: 12 })}>+ ADD</Text>
               </Pressable>
             </View>
           </View>
-
+          <View style={[ledgerLine, { marginTop: spacing.lg }]} />
           {accounts.length > 0 && (
-            <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
-              <View style={styles.summaryRow}>
-                <Text variant="caption" style={{ color: colors.muted }}>Net worth</Text>
-                <Text
-                  variant="cardTitle"
-                  style={{ color: netWorth >= 0 ? colors.primary : colors.error, fontSize: 22 }}
-                >
+            <>
+              <View style={styles.ledgerSummaryRow}>
+                <Text style={ledgerDim({ fontSize: 12 })}>NET WORTH</Text>
+                <Text style={[ledgerText(), { fontSize: 16 }]}>
                   {formatCurrency(netWorth, { signed: netWorth !== 0 })}
                 </Text>
               </View>
-              <View style={[styles.summaryDivider, { backgroundColor: colors.background }]} />
-              <View style={styles.summaryRow}>
-                <Text variant="caption" style={{ color: colors.muted }}>Assets</Text>
-                <Text variant="body" style={{ color: colors.text, fontWeight: '600' }}>
-                  {formatCurrency(totalAssets)}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text variant="caption" style={{ color: colors.muted }}>Debts</Text>
-                <Text variant="body" style={{ color: colors.error, fontWeight: '600' }}>
-                  {formatCurrency(totalDebts)}
-                </Text>
-              </View>
-            </View>
+              <View style={ledgerLine} />
+            </>
           )}
         </View>
 
         {accounts.length === 0 && !showAdd ? (
-          <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}>
-            <View style={[styles.emptyIconWrap, { backgroundColor: colors.background }]}>
-              <Ionicons name="wallet-outline" size={48} color={colors.muted} />
-            </View>
-            <Text variant="cardTitle" style={{ color: colors.text, textAlign: 'center' }}>
-              No accounts yet
-            </Text>
-            <Text variant="body" style={{ color: colors.muted, textAlign: 'center', marginTop: spacing.sm }}>
-              Add checking, savings, credit cards, or loans to track balances and net worth.
-            </Text>
-            <Button onPress={() => setShowAdd(true)} style={styles.topMargin}>
-              Add your first account
-            </Button>
+          <View style={styles.ledgerEmpty}>
+            <Text style={ledgerDim({ fontSize: 14 })}>No accounts yet. Add one or link a bank.</Text>
+            <Pressable style={({ pressed }) => [styles.ledgerBtn, { marginTop: spacing.lg }, pressed && { opacity: 0.7 }]} onPress={() => setShowAdd(true)}>
+              <Text style={ledgerText({ fontSize: 12 })}>+ ADD ACCOUNT</Text>
+            </Pressable>
           </View>
         ) : (
-          <View style={styles.section}>
+          <View style={styles.ledgerSection}>
             {assets.length > 0 && (
-              <View style={styles.sectionHeader}>
-                <Text variant="caption" style={{ color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                  Assets
-                </Text>
-              </View>
+              <>
+                <Text style={[ledgerDim(), { fontSize: 11, letterSpacing: 1, marginBottom: spacing.sm }]}>ASSETS</Text>
+                <View style={ledgerLine} />
+                {assets.map((acc) => (
+                  <Pressable
+                    key={acc._id}
+                    style={({ pressed }) => [styles.ledgerRow, pressed && { opacity: 0.7 }]}
+                    onPress={() => router.push(`/(tabs)/accounts/${acc._id}`)}
+                  >
+                    <Text style={[ledgerText(), { fontSize: 14, flex: 1 }]} numberOfLines={1}>{acc.name}</Text>
+                    <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(acc.currentBalance)}</Text>
+                  </Pressable>
+                ))}
+                <View style={ledgerLine} />
+              </>
             )}
-            {assets.map((acc) => {
-              const typeConfig = ACCOUNT_TYPES.find((t) => t.subtype === acc.subtype) ?? ACCOUNT_TYPES[0];
-              return (
-                <View key={acc._id} style={[styles.accountCard, { backgroundColor: colors.surface }]}>
-                  <View style={styles.accountRow}>
-                    <View style={[styles.accountIconWrap, { backgroundColor: colors.primary + '20' }]}>
-                      <Ionicons name={typeConfig.icon} size={24} color={colors.primary} />
-                    </View>
-                    <View style={styles.accountInfo}>
-                      <Text variant="cardTitle" style={{ color: colors.text }} numberOfLines={1}>
-                        {acc.name}
-                      </Text>
-                      <View style={[styles.subtypePill, { backgroundColor: colors.background }]}>
-                        <Text variant="caption" style={{ color: colors.muted, fontSize: 12 }}>
-                          {typeConfig.label}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text variant="cardTitle" style={{ color: colors.text }}>
-                      {formatCurrency(acc.currentBalance)}
-                    </Text>
-                  </View>
-                  <View style={[styles.accountActions, { borderTopColor: colors.background }]}>
-                    <Pressable
-                      style={({ pressed }) => [styles.iconAction, pressed && { opacity: 0.7 }]}
-                      onPress={() => { setReconcileAccount(acc); setReconcileBalance((acc.currentBalance / 100).toFixed(2)); }}
-                    >
-                      <Ionicons name="sync-outline" size={18} color={colors.primary} />
-                      <Text variant="caption" style={{ color: colors.primary }}>Reconcile</Text>
-                    </Pressable>
-                    <Pressable
-                      style={({ pressed }) => [styles.iconAction, pressed && { opacity: 0.7 }]}
-                      onPress={() => handleDelete(acc._id, acc.name)}
-                    >
-                      <Ionicons name="trash-outline" size={18} color={colors.error} />
-                      <Text variant="caption" style={{ color: colors.error }}>Remove</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              );
-            })}
 
             {debts.length > 0 && (
-              <View style={[styles.sectionHeader, { marginTop: assets.length > 0 ? spacing.xl : 0 }]}>
-                <Text variant="caption" style={{ color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                  Debt
-                </Text>
-              </View>
+              <>
+                <Text style={[ledgerDim(), { fontSize: 11, letterSpacing: 1, marginTop: assets.length > 0 ? spacing.xl : 0, marginBottom: spacing.sm }]}>DEBT</Text>
+                <View style={ledgerLine} />
+                {debts.map((acc) => (
+                  <Pressable
+                    key={acc._id}
+                    style={({ pressed }) => [styles.ledgerRow, pressed && { opacity: 0.7 }]}
+                    onPress={() => router.push(`/(tabs)/accounts/${acc._id}`)}
+                  >
+                    <Text style={[ledgerText(), { fontSize: 14, flex: 1 }]} numberOfLines={1}>{acc.name}</Text>
+                    <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(acc.currentBalance)}</Text>
+                  </Pressable>
+                ))}
+                <View style={ledgerLine} />
+              </>
             )}
-            {debts.map((acc) => {
-              const typeConfig = ACCOUNT_TYPES.find((t) => t.subtype === acc.subtype) ?? ACCOUNT_TYPES[0];
-              return (
-                <View key={acc._id} style={[styles.accountCard, { backgroundColor: colors.surface }]}>
-                  <View style={styles.accountRow}>
-                    <View style={[styles.accountIconWrap, { backgroundColor: colors.error + '20' }]}>
-                      <Ionicons name={typeConfig.icon} size={24} color={colors.error} />
-                    </View>
-                    <View style={styles.accountInfo}>
-                      <Text variant="cardTitle" style={{ color: colors.text }} numberOfLines={1}>
-                        {acc.name}
-                      </Text>
-                      <View style={[styles.subtypePill, { backgroundColor: colors.background }]}>
-                        <Text variant="caption" style={{ color: colors.muted, fontSize: 12 }}>
-                          {typeConfig.label}
-                        </Text>
-                      </View>
-                      {(acc.interestRate != null || acc.minimumPayment != null || acc.nextPaymentDueDate) && (
-                        <Text variant="caption" style={{ color: colors.muted, marginTop: 4 }} numberOfLines={1}>
-                          {acc.interestRate != null && `${(acc.interestRate * 100).toFixed(1)}% APR`}
-                          {acc.interestRate != null && (acc.minimumPayment != null || acc.nextPaymentDueDate) && ' · '}
-                          {acc.minimumPayment != null && `Min ${formatCurrency(acc.minimumPayment)}/mo`}
-                          {(acc.minimumPayment != null && acc.nextPaymentDueDate) && ' · '}
-                          {acc.nextPaymentDueDate && (() => {
-                            const [, m, day] = acc.nextPaymentDueDate!.split('-').map(Number);
-                            const months = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec';
-                            const monthName = months.split(' ')[(m || 1) - 1];
-                            return `Due ${monthName} ${day || ''}`;
-                          })()}
-                        </Text>
-                      )}
-                    </View>
-                    <Text variant="cardTitle" style={{ color: colors.error }}>
-                      {formatCurrency(acc.currentBalance)}
-                    </Text>
-                  </View>
-                  <View style={[styles.accountActions, { borderTopColor: colors.background }]}>
-                    <Pressable
-                      style={({ pressed }) => [styles.iconAction, pressed && { opacity: 0.7 }]}
-                      onPress={() => {
-                        setEditDebtAccount(acc);
-                        setEditRate(acc.interestRate != null ? String(acc.interestRate * 100) : '');
-                        setEditMinPay(acc.minimumPayment != null ? (acc.minimumPayment / 100).toFixed(2) : '');
-                      }}
-                    >
-                      <Ionicons name="pencil-outline" size={18} color={colors.primary} />
-                      <Text variant="caption" style={{ color: colors.primary }}>Rate</Text>
-                    </Pressable>
-                    <Pressable
-                      style={({ pressed }) => [styles.iconAction, pressed && { opacity: 0.7 }]}
-                      onPress={() => { setReconcileAccount(acc); setReconcileBalance((acc.currentBalance / 100).toFixed(2)); }}
-                    >
-                      <Ionicons name="sync-outline" size={18} color={colors.primary} />
-                      <Text variant="caption" style={{ color: colors.primary }}>Reconcile</Text>
-                    </Pressable>
-                    <Pressable
-                      style={({ pressed }) => [styles.iconAction, pressed && { opacity: 0.7 }]}
-                      onPress={() => handleDelete(acc._id, acc.name)}
-                    >
-                      <Ionicons name="trash-outline" size={18} color={colors.error} />
-                      <Text variant="caption" style={{ color: colors.error }}>Remove</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              );
-            })}
           </View>
         )}
 
@@ -424,32 +339,47 @@ export default function AccountsScreen() {
       <Modal visible={!!reconcileAccount} animationType="slide" transparent>
         {reconcileAccount && (
           <View style={[styles.modalOverlay, { backgroundColor: colors.background }]}>
-            <View style={[styles.reconcileCard, { backgroundColor: colors.surface }]}>
-              <Text variant="cardTitle" style={{ color: colors.text }}>Reconcile: {reconcileAccount.name}</Text>
-              <Text variant="caption" style={{ color: colors.muted }}>
-                Enter the current balance shown in your bank or statement.
-              </Text>
-              <Text variant="body" style={{ color: colors.text }}>
-                App balance: {formatCurrency(reconcileAccount.currentBalance)}
-              </Text>
-              <Input
-                placeholder="Bank balance (e.g. 1500.00)"
-                value={reconcileBalance}
-                onChangeText={setReconcileBalance}
-                keyboardType="decimal-pad"
-              />
-              {reconcileBalance.trim() !== '' && (
-                <Text variant="caption" style={{ color: reconcileDiff === 0 ? colors.primary : colors.error }}>
-                  {reconcileDiff === 0
-                    ? 'Balances match'
-                    : `Difference: ${formatCurrency(Math.abs(reconcileDiff), { signed: true })}`}
+            <View style={styles.modalCardWrap}>
+              <View style={[styles.reconcileCard, { backgroundColor: colors.surface }]}>
+                <View style={[styles.modalIconWrap, { backgroundColor: colors.primary + '18' }]}>
+                  <Ionicons name="sync-outline" size={28} color={colors.primary} />
+                </View>
+                <Text variant="cardTitle" style={{ color: colors.text, textAlign: 'center' }}>
+                  Reconcile
                 </Text>
-              )}
-              <View style={styles.formActions}>
-                <Button onPress={handleReconcile}>Update balance to match bank</Button>
-                <Button variant="secondary" onPress={() => { setReconcileAccount(null); setReconcileBalance(''); }}>
-                  Cancel
-                </Button>
+                <Text variant="body" style={{ color: colors.text, textAlign: 'center' }} numberOfLines={1}>
+                  {reconcileAccount.name}
+                </Text>
+                <Text variant="caption" style={{ color: colors.muted, textAlign: 'center', marginTop: spacing.sm }}>
+                  Enter the current balance shown in your bank or statement.
+                </Text>
+                <View style={[styles.balanceRow, { backgroundColor: colors.background }]}>
+                  <Text variant="caption" style={{ color: colors.muted }}>App balance</Text>
+                  <Text variant="body" style={{ color: colors.text, fontWeight: '600' }}>
+                    {formatCurrency(reconcileAccount.currentBalance)}
+                  </Text>
+                </View>
+                <Input
+                  placeholder="Bank balance (e.g. 1500.00)"
+                  value={reconcileBalance}
+                  onChangeText={setReconcileBalance}
+                  keyboardType="decimal-pad"
+                />
+                {reconcileBalance.trim() !== '' && (
+                  <View style={[styles.diffBadge, { backgroundColor: reconcileDiff === 0 ? colors.primary + '18' : colors.error + '18' }]}>
+                    <Text variant="caption" style={{ color: reconcileDiff === 0 ? colors.primary : colors.error, fontWeight: '600' }}>
+                      {reconcileDiff === 0
+                        ? 'Balances match'
+                        : `Difference: ${formatCurrency(Math.abs(reconcileDiff), { signed: true })}`}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.formActions}>
+                  <Button onPress={handleReconcile}>Update balance</Button>
+                  <Button variant="secondary" onPress={() => { setReconcileAccount(null); setReconcileBalance(''); }}>
+                    Cancel
+                  </Button>
+                </View>
               </View>
             </View>
           </View>
@@ -459,25 +389,43 @@ export default function AccountsScreen() {
       <Modal visible={!!editDebtAccount} animationType="slide" transparent>
         {editDebtAccount && (
           <View style={[styles.modalOverlay, { backgroundColor: colors.background }]}>
-            <View style={[styles.reconcileCard, { backgroundColor: colors.surface }]}>
-              <Text variant="cardTitle" style={{ color: colors.text }}>Debt details: {editDebtAccount.name}</Text>
-              <Input
-                placeholder="Interest rate % (e.g. 18)"
-                value={editRate}
-                onChangeText={setEditRate}
-                keyboardType="decimal-pad"
-              />
-              <Input
-                placeholder="Minimum payment $ (e.g. 50)"
-                value={editMinPay}
-                onChangeText={setEditMinPay}
-                keyboardType="decimal-pad"
-              />
-              <View style={styles.formActions}>
-                <Button onPress={handleSaveDebtDetails}>Save</Button>
-                <Button variant="secondary" onPress={() => { setEditDebtAccount(null); setEditRate(''); setEditMinPay(''); }}>
-                  Cancel
-                </Button>
+            <View style={styles.modalCardWrap}>
+              <View style={[styles.reconcileCard, { backgroundColor: colors.surface }]}>
+                <View style={[styles.modalIconWrap, { backgroundColor: colors.primary + '18' }]}>
+                  <Ionicons name="card-outline" size={28} color={colors.primary} />
+                </View>
+                <Text variant="cardTitle" style={{ color: colors.text, textAlign: 'center' }}>
+                  Debt details
+                </Text>
+                <Text variant="body" style={{ color: colors.muted, textAlign: 'center' }} numberOfLines={1}>
+                  {editDebtAccount.name}
+                </Text>
+                <Text variant="caption" style={[styles.formSectionLabel, { color: colors.muted, marginTop: spacing.xl }]}>
+                  Optional
+                </Text>
+                <Input
+                  placeholder="Interest rate % (e.g. 18)"
+                  value={editRate}
+                  onChangeText={setEditRate}
+                  keyboardType="decimal-pad"
+                />
+                <Input
+                  placeholder="Minimum payment $ (e.g. 50)"
+                  value={editMinPay}
+                  onChangeText={setEditMinPay}
+                  keyboardType="decimal-pad"
+                />
+                <Input
+                  placeholder="Payment due (e.g. 15 or 2026-02-15)"
+                  value={editDueDate}
+                  onChangeText={setEditDueDate}
+                />
+                <View style={styles.formActions}>
+                  <Button onPress={handleSaveDebtDetails}>Save</Button>
+                  <Button variant="secondary" onPress={() => { setEditDebtAccount(null); setEditRate(''); setEditMinPay(''); setEditDueDate(''); }}>
+                    Cancel
+                  </Button>
+                </View>
               </View>
             </View>
           </View>
@@ -491,18 +439,21 @@ export default function AccountsScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={0}
         >
-          <View style={[styles.modalHeader, { paddingTop: insets.top + spacing.sm, borderBottomColor: colors.background }]}>
+          <View style={[styles.modalHeader, { paddingTop: insets.top + spacing.md, borderBottomColor: colors.surface }]}>
             <Pressable
               onPress={() => { setShowAdd(false); setShowManualEntry(false); }}
-              style={({ pressed }) => [{ padding: spacing.sm }, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [styles.modalHeaderBtn, pressed && { opacity: 0.7 }]}
             >
               <Text variant="body" style={{ color: colors.primary }}>Cancel</Text>
             </Pressable>
-            <Text variant="cardTitle" style={{ color: colors.text }}>New account</Text>
+            <View style={styles.modalHeaderCenter}>
+              <Text variant="cardTitle" style={{ color: colors.text }}>New account</Text>
+              <Text variant="caption" style={{ color: colors.muted, marginTop: 2 }}>Link bank or add manually</Text>
+            </View>
             <Pressable
               onPress={handleAdd}
               disabled={!name.trim()}
-              style={({ pressed }) => [{ padding: spacing.sm }, pressed && { opacity: 0.7 }, !name.trim() && { opacity: 0.5 }]}
+              style={({ pressed }) => [styles.modalHeaderBtn, pressed && { opacity: 0.7 }, !name.trim() && { opacity: 0.5 }]}
             >
               <Text variant="body" style={{ color: name.trim() ? colors.primary : colors.muted, fontWeight: '600' }}>Save</Text>
             </Pressable>
@@ -517,8 +468,9 @@ export default function AccountsScreen() {
             <Pressable
               disabled={plaidLinking}
               style={({ pressed }) => [
+                styles.optionCard,
                 styles.plaidCard,
-                { backgroundColor: colors.surface, borderColor: colors.primary },
+                { backgroundColor: colors.primary + '0c', borderColor: colors.primary + '40' },
                 (pressed || plaidLinking) && { opacity: 0.9 },
               ]}
               onPress={() => {
@@ -587,8 +539,8 @@ export default function AccountsScreen() {
                 })();
               }}
             >
-              <View style={[styles.plaidIconWrap, { backgroundColor: colors.primary }]}>
-                <Ionicons name="link" size={24} color="#fff" />
+              <View style={[styles.optionCardIcon, { backgroundColor: colors.primary }]}>
+                <Ionicons name="link" size={26} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text variant="body" style={{ color: colors.text, fontWeight: '600' }}>
@@ -603,8 +555,8 @@ export default function AccountsScreen() {
 
             {/* Apple Card — not via Plaid; native FinanceKit coming later (iOS only) */}
             {Platform.OS === 'ios' && (
-              <View style={[styles.appleCardCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={[styles.appleCardIconWrap, { backgroundColor: colors.text }]}>
+              <View style={[styles.appleCardCard, { backgroundColor: colors.surface, borderColor: colors.background }]}>
+                <View style={[styles.optionCardIcon, { backgroundColor: colors.text }]}>
                   <Ionicons name="card-outline" size={22} color={colors.surface} />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -630,21 +582,32 @@ export default function AccountsScreen() {
             <Pressable
               disabled={extracting}
               style={({ pressed }) => [
+                styles.optionCard,
                 styles.manualEntryCard,
                 { backgroundColor: colors.surface, borderColor: colors.background },
                 (pressed || extracting) && { opacity: 0.9 },
+                extracting && { borderColor: colors.primary + '60' },
                 { marginTop: spacing.md },
               ]}
               onPress={() => {
-                const showDevBuildAlert = () => {
+                const showImagePickerUnavailableAlert = (e?: unknown) => {
+                  const isNativeModuleError =
+                    e instanceof Error &&
+                    (e.message.includes('Cannot find native module') ||
+                      e.message.includes('ExponentImagePicker') ||
+                      e.message.includes('Not available'));
                   Alert.alert(
-                    'Use a development build',
-                    'Upload screenshot only works in an app you built with "npx expo run:ios" (or run:android). It does not work in Expo Go. Build once, then use that app to upload.',
+                    'Image picker unavailable',
+                    isNativeModuleError || !e
+                      ? 'Upload works in a development build. Run "npx expo run:ios" (or run:android), then open that app and try again. It does not work in Expo Go.'
+                      : e instanceof Error
+                        ? e.message
+                        : 'Something went wrong. Try a development build (npx expo run:ios).',
                     [{ text: 'OK' }]
                   );
                 };
                 if (Constants.appOwnership === 'expo') {
-                  showDevBuildAlert();
+                  showImagePickerUnavailableAlert();
                   return;
                 }
                 Alert.alert(
@@ -666,8 +629,8 @@ export default function AccountsScreen() {
                           const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
                           if (result.canceled || !result.assets[0]?.uri) return;
                           await uploadAndExtract(result.assets[0].uri, result.assets[0].mimeType ?? 'image/jpeg');
-                        } catch {
-                          showDevBuildAlert();
+                        } catch (err) {
+                          showImagePickerUnavailableAlert(err);
                         }
                       },
                     },
@@ -680,8 +643,8 @@ export default function AccountsScreen() {
                           const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
                           if (result.canceled || !result.assets[0]?.uri) return;
                           await uploadAndExtract(result.assets[0].uri, result.assets[0].mimeType ?? 'image/jpeg');
-                        } catch {
-                          showDevBuildAlert();
+                        } catch (err) {
+                          showImagePickerUnavailableAlert(err);
                         }
                       },
                     },
@@ -698,12 +661,12 @@ export default function AccountsScreen() {
                           if (result.canceled) return;
                           const file = result.assets[0];
                           if (file.mimeType?.includes('pdf')) {
-                            Toast.show({ type: 'info', text1: 'Take a screenshot of the balance page and upload that image instead.' });
+                            showPdfNotSupportedAlert();
                             return;
                           }
                           await uploadAndExtract(file.uri, file.mimeType ?? 'image/jpeg');
-                        } catch {
-                          showDevBuildAlert();
+                        } catch (err) {
+                          showImagePickerUnavailableAlert(err);
                         }
                       },
                     },
@@ -711,13 +674,21 @@ export default function AccountsScreen() {
                 );
               }}
             >
-              <Ionicons name="document-text-outline" size={22} color={colors.muted} />
+              {extracting ? (
+                <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: spacing.sm }} />
+              ) : (
+                <View style={[styles.optionCardIcon, { backgroundColor: colors.primary + '18' }]}>
+                  <Ionicons name="document-text-outline" size={22} color={colors.primary} />
+                </View>
+              )}
               <View style={{ flex: 1 }}>
                 <Text variant="body" style={{ color: colors.text, fontWeight: '500' }}>
-                  {extracting ? 'Extracting…' : 'Upload screenshot or statement'}
+                  {extracting
+                    ? (extractPhase === 'uploading' ? 'Uploading…' : 'Extracting…')
+                    : 'Upload screenshot or statement'}
                 </Text>
                 <Text variant="caption" style={{ color: colors.muted, marginTop: 2 }}>
-                  {extracting ? 'Reading your image…' : 'We’ll fill in the details for you'}
+                  {extracting ? (extractPhase === 'uploading' ? 'Sending your image…' : 'Reading account name and balance…') : 'We’ll fill in the details for you'}
                 </Text>
               </View>
               {!extracting && <Ionicons name="chevron-forward" size={18} color={colors.muted} />}
@@ -727,12 +698,15 @@ export default function AccountsScreen() {
               <Pressable
                 onPress={() => setShowManualEntry(true)}
                 style={({ pressed }) => [
+                  styles.optionCard,
                   styles.manualEntryCard,
                   { backgroundColor: colors.surface, borderColor: colors.background },
                   pressed && { opacity: 0.9 },
                 ]}
               >
-                <Ionicons name="create-outline" size={22} color={colors.muted} />
+                <View style={[styles.optionCardIcon, { backgroundColor: colors.background }]}>
+                  <Ionicons name="create-outline" size={22} color={colors.muted} />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text variant="body" style={{ color: colors.text, fontWeight: '500' }}>Add account manually</Text>
                 </View>
@@ -800,6 +774,11 @@ export default function AccountsScreen() {
                   onChangeText={setMinimumPayment}
                   keyboardType="decimal-pad"
                 />
+                <Input
+                  placeholder="Payment due (e.g. 15 or 2026-02-15)"
+                  value={paymentDueDate}
+                  onChangeText={setPaymentDueDate}
+                />
               </View>
             )}
               </>
@@ -814,7 +793,7 @@ export default function AccountsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  scroll: { flex: 1 },
+  scroll: { flex: 1, backgroundColor: LEDGER_BG },
   scrollContent: { paddingBottom: spacing.xxl },
   header: {
     paddingHorizontal: spacing.lg,
@@ -837,82 +816,83 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  summaryCard: {
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginTop: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+  ledgerHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
   },
-  summaryRow: {
+  ledgerHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+  },
+  ledgerBtn: {
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: LEDGER_AMBER,
+    borderRadius: 0,
   },
-  summaryDivider: {
-    height: 1,
-    marginVertical: spacing.xs,
-  },
-  section: { paddingHorizontal: spacing.lg, gap: spacing.md },
-  sectionHeader: {
-    marginBottom: spacing.sm,
-  },
-  emptyCard: {
-    marginHorizontal: spacing.lg,
-    padding: spacing.xl * 1.5,
-    borderRadius: radii.lg,
-    gap: spacing.lg,
-    alignItems: 'center',
-  },
-  emptyIconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  accountCard: {
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    minHeight: 72,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  accountRow: {
+  ledgerSummaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
   },
-  accountIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.md,
+  ledgerEmpty: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+  },
+  ledgerSection: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  ledgerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  accountInfo: { flex: 1, minWidth: 0 },
-  subtypePill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radii.sm,
-    marginTop: 4,
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingRight: 0,
   },
   accountActions: {
     flexDirection: 'row',
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
+    flexWrap: 'wrap',
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
     borderTopWidth: 1,
     borderTopColor: 'transparent',
-    gap: spacing.lg,
+    gap: spacing.sm,
+  },
+  accountActionsCardWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  accountActionsCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    borderWidth: 1,
+  },
+  accountActionsModal: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    gap: spacing.sm,
+  },
+  actionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.lg,
+  },
+  actionPillFull: {
+    width: '100%',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
   },
   iconAction: {
     flexDirection: 'row',
@@ -925,35 +905,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.lg,
     borderBottomWidth: 1,
   },
+  modalHeaderBtn: { padding: spacing.sm, minWidth: 64 },
+  modalHeaderCenter: { alignItems: 'center' },
   modalScroll: { flex: 1 },
   modalScrollContent: { padding: spacing.lg, paddingBottom: spacing.xxl * 2 },
-  plaidCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.lg,
-    borderRadius: radii.lg,
-    borderWidth: 2,
-    gap: spacing.md,
-  },
-  manualEntryCard: {
+  optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.lg,
     borderRadius: radii.lg,
     borderWidth: 1,
     gap: spacing.md,
-    marginTop: spacing.md,
   },
-  plaidIconWrap: {
-    width: 44,
-    height: 44,
+  optionCardIcon: {
+    width: 48,
+    height: 48,
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  plaidCard: {},
+  manualEntryCard: { marginTop: spacing.md },
   appleCardCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -962,13 +937,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: spacing.md,
     marginTop: spacing.md,
-  },
-  appleCardIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   orDivider: {
     flexDirection: 'row',
@@ -1028,9 +996,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: spacing.xl,
   },
+  modalCardWrap: {
+    maxWidth: 400,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  modalIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radii.md,
+    marginTop: spacing.md,
+  },
+  diffBadge: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.sm,
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
   reconcileCard: {
     borderRadius: radii.lg,
     padding: spacing.xl,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
 });
