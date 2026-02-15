@@ -7,16 +7,24 @@ import { api } from '../../../convex/_generated/api';
 import type { Id, Doc } from '../../../convex/_generated/dataModel';
 import { useTheme } from '../../../lib/theme-context';
 import { spacing, radii } from '../../../lib/theme';
+import {
+  LEDGER_BG,
+  ledgerText,
+  ledgerDim,
+  ledgerLine,
+  ledgerHeader,
+  ledgerHeaderRow,
+  ledgerBtn,
+  ledgerSummaryRow,
+  ledgerEmpty,
+  ledgerSection,
+  ledgerRow,
+} from '../../../lib/ledger-theme';
 import { formatCurrency, parseAmountToCents, parsePaymentDueDate } from '../../../lib/format';
 import { Text, Button, Input } from '../../../components';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-
-const LEDGER_BG = '#000000';
-const LEDGER_AMBER = '#FFCC00';
-const LEDGER_AMBER_DIM = '#B38600';
-const LEDGER_FONT = Platform.select({ ios: 'Menlo', android: 'monospace' });
 
 const ACCOUNT_TYPES = [
   { type: 'depository', subtype: 'checking', label: 'Checking', icon: 'wallet-outline' as const },
@@ -223,10 +231,6 @@ export default function AccountsScreen() {
     }
   };
 
-  const ledgerText = (style = {}) => ({ fontFamily: LEDGER_FONT, color: LEDGER_AMBER, ...style });
-  const ledgerDim = (style = {}) => ({ fontFamily: LEDGER_FONT, color: LEDGER_AMBER_DIM, ...style });
-  const ledgerLine = { height: 1, backgroundColor: LEDGER_AMBER, opacity: 0.4 };
-
   return (
     <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
       <ScrollView
@@ -235,8 +239,8 @@ export default function AccountsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[styles.ledgerHeader, { paddingBottom: spacing.md }]}>
-          <View style={styles.ledgerHeaderRow}>
+        <View style={[ledgerHeader, { paddingBottom: spacing.md }]}>
+          <View style={ledgerHeaderRow}>
             <View>
               <Text style={[ledgerText(), { fontSize: 16, letterSpacing: 1 }]}>ACCOUNTS</Text>
               <Text style={[ledgerDim(), { fontSize: 12, marginTop: 2 }]}>Balances and net worth</Text>
@@ -244,7 +248,7 @@ export default function AccountsScreen() {
             <View style={styles.headerActions}>
               {accounts.some((a) => a.plaidItemId) && (
                 <Pressable
-                  style={({ pressed }) => [styles.ledgerBtn, pressed && { opacity: 0.7 }]}
+                  style={({ pressed }) => [ledgerBtn, pressed && { opacity: 0.7 }]}
                   onPress={async () => {
                     setRefreshing(true);
                     try {
@@ -265,7 +269,7 @@ export default function AccountsScreen() {
                 </Pressable>
               )}
               <Pressable
-                style={({ pressed }) => [styles.ledgerBtn, pressed && { opacity: 0.7 }]}
+                style={({ pressed }) => [ledgerBtn, pressed && { opacity: 0.7 }]}
                 onPress={() => setShowAdd(true)}
               >
                 <Text style={ledgerText({ fontSize: 12 })}>+ ADD</Text>
@@ -275,7 +279,7 @@ export default function AccountsScreen() {
           <View style={[ledgerLine, { marginTop: spacing.lg }]} />
           {accounts.length > 0 && (
             <>
-              <View style={styles.ledgerSummaryRow}>
+              <View style={ledgerSummaryRow}>
                 <Text style={ledgerDim({ fontSize: 12 })}>NET WORTH</Text>
                 <Text style={[ledgerText(), { fontSize: 16 }]}>
                   {formatCurrency(netWorth, { signed: netWorth !== 0 })}
@@ -287,14 +291,14 @@ export default function AccountsScreen() {
         </View>
 
         {accounts.length === 0 && !showAdd ? (
-          <View style={styles.ledgerEmpty}>
+          <View style={ledgerEmpty}>
             <Text style={ledgerDim({ fontSize: 14 })}>No accounts yet. Add one or link a bank.</Text>
-            <Pressable style={({ pressed }) => [styles.ledgerBtn, { marginTop: spacing.lg }, pressed && { opacity: 0.7 }]} onPress={() => setShowAdd(true)}>
+            <Pressable style={({ pressed }) => [ledgerBtn, { marginTop: spacing.lg }, pressed && { opacity: 0.7 }]} onPress={() => setShowAdd(true)}>
               <Text style={ledgerText({ fontSize: 12 })}>+ ADD ACCOUNT</Text>
             </Pressable>
           </View>
         ) : (
-          <View style={styles.ledgerSection}>
+          <View style={ledgerSection}>
             {assets.length > 0 && (
               <>
                 <Text style={[ledgerDim(), { fontSize: 11, letterSpacing: 1, marginBottom: spacing.sm }]}>ASSETS</Text>
@@ -302,7 +306,7 @@ export default function AccountsScreen() {
                 {assets.map((acc) => (
                   <Pressable
                     key={acc._id}
-                    style={({ pressed }) => [styles.ledgerRow, pressed && { opacity: 0.7 }]}
+                    style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
                     onPress={() => router.push(`/(tabs)/accounts/${acc._id}`)}
                   >
                     <Text style={[ledgerText(), { fontSize: 14, flex: 1 }]} numberOfLines={1}>{acc.name}</Text>
@@ -320,7 +324,7 @@ export default function AccountsScreen() {
                 {debts.map((acc) => (
                   <Pressable
                     key={acc._id}
-                    style={({ pressed }) => [styles.ledgerRow, pressed && { opacity: 0.7 }]}
+                    style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
                     onPress={() => router.push(`/(tabs)/accounts/${acc._id}`)}
                   >
                     <Text style={[ledgerText(), { fontSize: 14, flex: 1 }]} numberOfLines={1}>{acc.name}</Text>
@@ -815,43 +819,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  ledgerHeader: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-  },
-  ledgerHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  ledgerBtn: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: LEDGER_AMBER,
-    borderRadius: 0,
-  },
-  ledgerSummaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-  },
-  ledgerEmpty: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-  },
-  ledgerSection: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  ledgerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    paddingRight: 0,
   },
   accountActions: {
     flexDirection: 'row',

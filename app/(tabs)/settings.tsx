@@ -16,6 +16,17 @@ import { authClient } from '../../lib/auth-client';
 import { useTheme } from '../../lib/theme-context';
 import { spacing, radii } from '../../lib/theme';
 import { useRouter } from 'expo-router';
+import {
+  LEDGER_BG,
+  ledgerText,
+  ledgerDim,
+  ledgerLine,
+  ledgerHeader,
+  ledgerHeaderRow,
+  ledgerSection,
+  ledgerRow,
+} from '../../lib/ledger-theme';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Text, ThemeToggle, BottomSheetModal } from '../../components';
 import Toast from 'react-native-toast-message';
 
@@ -80,165 +91,108 @@ export default function SettingsScreen() {
         : 'Light';
 
   return (
-    <ScrollView
-      style={[styles.screen, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <Text variant="title">Settings</Text>
-        <Text variant="subtitle">Preferences and account</Text>
-      </View>
+    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: LEDGER_BG }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[ledgerHeader, { paddingBottom: spacing.md }]}>
+          <View style={ledgerHeaderRow}>
+            <View>
+              <Text style={[ledgerText(), { fontSize: 16, letterSpacing: 1 }]}>SETTINGS</Text>
+              <Text style={[ledgerDim(), { fontSize: 12, marginTop: 2 }]}>
+                Preferences and account
+              </Text>
+            </View>
+          </View>
+          <View style={ledgerLine} />
+        </View>
 
-      {/* Appearance */}
-      <View style={styles.section}>
-        <Text variant="caption" style={[styles.sectionLabel, { color: colors.muted }]}>
-          Appearance
-        </Text>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <View style={styles.row}>
-            <View style={styles.rowLabel}>
-              <Text variant="body" style={{ color: colors.text }}>
-                Theme
-              </Text>
-              <Text variant="caption" style={[styles.rowCaption, { color: colors.muted }]}>
-                {themeLabel}
-              </Text>
+        <View style={ledgerSection}>
+          <Text style={[ledgerDim(), styles.sectionLabel]}>APPEARANCE</Text>
+          <View style={ledgerLine} />
+          <View style={[ledgerRow, { paddingVertical: spacing.lg }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[ledgerText(), { fontSize: 14 }]}>Theme</Text>
+              <Text style={[ledgerDim(), { fontSize: 11, marginTop: 2 }]}>{themeLabel}</Text>
             </View>
             <ThemeToggle />
           </View>
+          <View style={ledgerLine} />
         </View>
-      </View>
 
-      {/* Notifications */}
-      <View style={styles.section}>
-        <Text variant="caption" style={[styles.sectionLabel, { color: colors.muted }]}>
-          Notifications
-        </Text>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <View style={styles.row}>
-            <View style={styles.rowLabel}>
-              <Text variant="body" style={{ color: colors.text }}>
-                Push notifications
-              </Text>
-              <Text variant="caption" style={[styles.rowCaption, { color: colors.muted }]}>
-                Reminders and updates
-              </Text>
+        <View style={ledgerSection}>
+          <Text style={[ledgerDim(), styles.sectionLabel]}>NOTIFICATIONS</Text>
+          <View style={ledgerLine} />
+          <View style={[ledgerRow, { paddingVertical: spacing.lg }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[ledgerText(), { fontSize: 14 }]}>Push notifications</Text>
+              <Text style={[ledgerDim(), { fontSize: 11, marginTop: 2 }]}>Reminders and updates</Text>
             </View>
             <Switch
               value={pushEnabled}
               onValueChange={setPushEnabledAndStore}
-              trackColor={{ false: colors.surface, true: colors.primary }}
-              thumbColor="#ffffff"
+              trackColor={{ false: '#1a0a0a', true: '#B91C1C' }}
+              thumbColor="#fff"
             />
           </View>
+          <View style={ledgerLine} />
         </View>
-      </View>
 
-      {/* About */}
-      <View style={styles.section}>
-        <Text variant="caption" style={[styles.sectionLabel, { color: colors.muted }]}>
-          About
-        </Text>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <View style={styles.row}>
-            <Text variant="body" style={{ color: colors.text }}>
-              Version
-            </Text>
-            <Text variant="caption" style={{ color: colors.muted }}>
-              {appVersion}
-            </Text>
+        <View style={ledgerSection}>
+          <Text style={[ledgerDim(), styles.sectionLabel]}>ABOUT</Text>
+          <View style={ledgerLine} />
+          <View style={[ledgerRow, { paddingVertical: spacing.md }]}>
+            <Text style={[ledgerText(), { fontSize: 14 }]}>Version</Text>
+            <Text style={ledgerDim({ fontSize: 14 })}>{appVersion}</Text>
           </View>
-          <View style={[styles.divider, { backgroundColor: colors.background }]} />
           <Pressable
-            style={({ pressed }) => [styles.accountRow, pressed && { opacity: 0.8 }]}
+            style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
             onPress={() => openLink(process.env.EXPO_PUBLIC_TERMS_URL, 'TERMS_URL')}
-            accessibilityRole="button"
-            accessibilityLabel="Terms of Service"
           >
-            <Text variant="body" style={{ color: colors.text }}>
-              Terms of Service
-            </Text>
+            <Text style={[ledgerText(), { fontSize: 14 }]}>Terms of Service</Text>
+            <Ionicons name="chevron-forward" size={16} color="#7F1D1D" />
           </Pressable>
-          <View style={[styles.divider, { backgroundColor: colors.background }]} />
           <Pressable
-            style={({ pressed }) => [styles.accountRow, pressed && { opacity: 0.8 }]}
+            style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
             onPress={() => openLink(process.env.EXPO_PUBLIC_PRIVACY_URL, 'PRIVACY_URL')}
-            accessibilityRole="button"
-            accessibilityLabel="Privacy Policy"
           >
-            <Text variant="body" style={{ color: colors.text }}>
-              Privacy Policy
-            </Text>
+            <Text style={[ledgerText(), { fontSize: 14 }]}>Privacy Policy</Text>
+            <Ionicons name="chevron-forward" size={16} color="#7F1D1D" />
           </Pressable>
+          <View style={ledgerLine} />
         </View>
-      </View>
 
-      {/* Account */}
-      <View style={styles.section}>
-        <Text variant="caption" style={[styles.sectionLabel, { color: colors.muted }]}>
-          Account
-        </Text>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+        <View style={ledgerSection}>
+          <Text style={[ledgerDim(), styles.sectionLabel]}>ACCOUNT</Text>
+          <View style={ledgerLine} />
           <Pressable
-            style={({ pressed }) => [
-              styles.accountRow,
-              pressed && { opacity: 0.8 },
-            ]}
+            style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
             onPress={() => router.push('/change-password')}
-            accessibilityRole="button"
-            accessibilityLabel="Change password"
           >
-            <Text variant="body" style={{ color: colors.text }}>
-              Change password
-            </Text>
-            <Text variant="caption" style={{ color: colors.muted }}>
-              Update your password
-            </Text>
+            <Text style={[ledgerText(), { fontSize: 14 }]}>Change password</Text>
+            <Ionicons name="chevron-forward" size={16} color="#7F1D1D" />
           </Pressable>
-
-          <View style={[styles.divider, { backgroundColor: colors.background }]} />
-
           <Pressable
-            style={({ pressed }) => [
-              styles.accountRow,
-              pressed && { opacity: 0.8 },
-            ]}
+            style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
             onPress={handleSignOut}
-            accessibilityRole="button"
-            accessibilityLabel="Sign out"
           >
-            <Text variant="body" style={{ color: colors.text }}>
-              Sign out
-            </Text>
-            <Text variant="caption" style={{ color: colors.muted }}>
-              Sign out of this device
-            </Text>
+            <Text style={[ledgerText(), { fontSize: 14 }]}>Sign out</Text>
+            <Ionicons name="chevron-forward" size={16} color="#7F1D1D" />
           </Pressable>
-
-          <View style={[styles.divider, { backgroundColor: colors.background }]} />
-
           <Pressable
-            style={({ pressed }) => [
-              styles.dangerRow,
-              pressed && { opacity: 0.8 },
-            ]}
+            style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
             onPress={() => setDeleteSheetOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Delete account"
-            accessibilityHint="Opens confirmation to permanently delete your account"
           >
-            <View style={styles.dangerTextBlock}>
-              <Text variant="body" style={{ color: colors.error }}>
-                Delete account
-              </Text>
-              <Text variant="caption" style={[styles.dangerCaption, { color: colors.muted }]}>
-                Permanently remove your account and data
-              </Text>
-            </View>
+            <Text style={[ledgerText(), { fontSize: 14, color: '#DC2626' }]}>Delete account</Text>
+            <Ionicons name="chevron-forward" size={16} color="#7F1D1D" />
           </Pressable>
+          <View style={ledgerLine} />
         </View>
-      </View>
+
+        <View style={{ height: insets.bottom + spacing.xxl * 2 }} />
+      </ScrollView>
 
       <BottomSheetModal
         isOpen={deleteSheetOpen}
@@ -246,10 +200,10 @@ export default function SettingsScreen() {
         snapPoints={['40%']}
       >
         <View style={styles.sheetContent}>
-          <Text variant="cardTitle" style={styles.sheetTitle}>
+          <Text variant="cardTitle" style={[styles.sheetTitle, { color: colors.text }]}>
             Delete account?
           </Text>
-          <Text variant="body" style={styles.sheetBody}>
+          <Text variant="body" style={[styles.sheetBody, { color: colors.muted }]}>
             Permanently delete your account and all data. This cannot be undone.
           </Text>
           <Button
@@ -273,72 +227,18 @@ export default function SettingsScreen() {
           </Button>
         </View>
       </BottomSheetModal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: spacing.xxl * 2,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
-    gap: spacing.xs,
-  },
-  section: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
-  },
+  screen: { flex: 1 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: spacing.xxl },
   sectionLabel: {
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontSize: 11,
+    letterSpacing: 1,
     marginBottom: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  card: {
-    borderRadius: radii.lg,
-    paddingVertical: spacing.sm,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.lg,
-  },
-  rowLabel: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  rowCaption: {
-    marginTop: 2,
-  },
-  accountRow: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.xs,
-  },
-  divider: {
-    height: 1,
-    marginHorizontal: spacing.lg,
-  },
-  dangerRow: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  dangerTextBlock: {
-    gap: spacing.xs,
-  },
-  dangerCaption: {
-    marginTop: 2,
   },
   sheetContent: {
     padding: spacing.xl,

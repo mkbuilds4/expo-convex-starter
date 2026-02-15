@@ -101,4 +101,41 @@ export default defineSchema({
     monthlyContribution: v.optional(v.number()),
     currentAmount: v.number(),
   }).index('by_user', ['userId']),
+
+  // Debt payoff game: target date & starting snapshot for progress
+  debtPayoffPlans: defineTable({
+    userId: v.string(),
+    targetDate: v.string(), // YYYY-MM-DD
+    startedTotalDebtCents: v.optional(v.number()), // snapshot when plan was set
+    monthlyExtraCents: v.optional(v.number()), // extra $ toward debt each month
+  }).index('by_user', ['userId']),
+
+  // Recurring monthly expenses (bills) for income target
+  recurringBills: defineTable({
+    userId: v.string(),
+    name: v.string(),
+    amount: v.number(), // cents per month
+    dueDay: v.number(), // 1-31
+    sortOrder: v.number(),
+  }).index('by_user', ['userId']),
+
+  // Income sources (salary, freelance, etc.) — amount per period
+  incomeSources: defineTable({
+    userId: v.string(),
+    name: v.string(),
+    amount: v.number(), // cents per period
+    frequency: v.string(), // 'weekly' | 'biweekly' | 'monthly' | 'annual'
+    type: v.optional(v.string()), // 'salary' | 'freelance' | 'gig' | 'other'
+    sortOrder: v.number(),
+  }).index('by_user', ['userId']),
+
+  // Potential jobs/opportunities for forecasting
+  incomeForecasts: defineTable({
+    userId: v.string(),
+    name: v.string(),
+    amount: v.number(), // cents
+    kind: v.string(), // 'one-time' | 'recurring'
+    frequency: v.optional(v.string()), // 'weekly' | 'biweekly' | 'monthly' | 'annual' when recurring
+    sortOrder: v.number(),
+  }).index('by_user', ['userId']),
 });

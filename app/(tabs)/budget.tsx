@@ -4,16 +4,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { useTheme } from '../../lib/theme-context';
-import { spacing, radii } from '../../lib/theme';
+import { spacing } from '../../lib/theme';
+import {
+  LEDGER_BG,
+  ledgerText,
+  ledgerDim,
+  ledgerLine,
+  ledgerHeader,
+  ledgerHeaderRow,
+  ledgerSection,
+  ledgerBtn,
+} from '../../lib/ledger-theme';
 import { formatCurrency, getCurrentMonth, formatMonth, parseAmountToCents } from '../../lib/format';
-import { Text, Button, Input, RoomCard } from '../../components';
+import { Text, Input, RoomCard } from '../../components';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function BudgetScreen() {
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
   const month = getCurrentMonth();
   const dashboard = useQuery(api.budget.getDashboard, { month });
   const setAssignment = useMutation(api.budget.setAssignment);
@@ -28,7 +36,6 @@ export default function BudgetScreen() {
   const [newCategory, setNewCategory] = useState('');
 
   const categories = dashboard?.categories ?? [];
-  const readyToAssign = dashboard?.readyToAssign ?? 0;
   const byGroup = categories.reduce((acc, c) => {
     const g = c.groupName || 'Other';
     if (!acc[g]) acc[g] = [];
@@ -78,8 +85,8 @@ export default function BudgetScreen() {
 
   const handleRemoveCategory = (categoryId: Id<'budgetCategories'>, categoryName: string) => {
     Alert.alert(
-      'Remove room?',
-      `"${categoryName}" will be removed. Assignments and transaction links to this category will be cleared.`,
+      'Remove category?',
+      `"${categoryName}" will be removed. Assignments and transaction links will be cleared.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -89,7 +96,7 @@ export default function BudgetScreen() {
             try {
               await removeCategory({ id: categoryId });
               setEditingCategory(null);
-              Toast.show({ type: 'success', text1: 'Room removed' });
+              Toast.show({ type: 'success', text1: 'Category removed' });
             } catch (e) {
               Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Failed' });
             }
@@ -122,131 +129,118 @@ export default function BudgetScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.screen, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={[styles.houseIcon, { backgroundColor: colors.primary + '25' }]}>
-            <Ionicons name="home" size={26} color={colors.primary} />
-          </View>
+    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: LEDGER_BG }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[ledgerHeader, styles.budgetHeader]}>
           <View>
-            <Text variant="title">Your financial house</Text>
-            <Text variant="subtitle" style={{ color: colors.muted }}>{formatMonth(month)}</Text>
+            <Text style={[ledgerText(), styles.pageTitle]}>BUDGET</Text>
+            <Text style={[ledgerDim(), styles.pageSubtitle]}>{formatMonth(month)}</Text>
           </View>
+          <View style={ledgerLine} />
         </View>
-      </View>
 
-      <View style={[styles.vaultCard, { backgroundColor: colors.surface, borderColor: colors.primary + '40' }]}>
-        <View style={styles.vaultRow}>
-          <Ionicons name="key-outline" size={20} color={colors.muted} />
-          <Text variant="caption" style={{ color: colors.muted }}>Ready to assign</Text>
-        </View>
-        <Text variant="cardTitle" style={{ color: readyToAssign >= 0 ? colors.primary : colors.error, marginTop: 4 }}>
-          {formatCurrency(readyToAssign)}
-        </Text>
-        <Text variant="caption" style={{ color: colors.muted, marginTop: 2 }}>
-          Assign to rooms below
-        </Text>
-      </View>
+        {Object.entries(byGroup).map(([groupName, cats]) => (
+          <View key={groupName} style={[ledgerSection, styles.categorySection]}>
+            <View style={styles.groupHeader}>
+              <Text style={[ledgerDim(), styles.groupLabel]}>{groupName}</Text>
+              <Pressable
+                onPress={() => handleRemoveGroup(groupName, cats.length)}
+                style={({ pressed }) => [styles.removeBtn, pressed && { opacity: 0.7 }]}
+                hitSlop={8}
+              >
+                <Text style={ledgerText({ fontSize: 11 })}>REMOVE</Text>
+              </Pressable>
+            </View>
+            <View style={ledgerLine} />
+            {cats.map((c) => (
+              <RoomCard
+                key={c._id}
+                name={c.name}
+                assigned={c.assigned}
+                spent={c.spent}
+                isEditing={editingCategory === c._id}
+                assignAmount={assignAmount}
+                onAssignAmountChange={setAssignAmount}
+                onSetAssignment={() => handleSetAssignment(c._id)}
+                onCancelEdit={() => setEditingCategory(null)}
+                onStartEdit={() => setEditingCategory(c._id)}
+                onQuickAssign={(amount) => handleQuickAssign(c._id, amount)}
+                onRemove={() => handleRemoveCategory(c._id, c.name)}
+              />
+            ))}
+            <View style={ledgerLine} />
+          </View>
+        ))}
 
-      {Object.entries(byGroup).map(([groupName, cats]) => (
-        <View key={groupName} style={styles.section}>
-          <View style={styles.groupHeader}>
-            <Text variant="caption" style={[styles.wingLabel, { color: colors.muted }]}>
-              {groupName}
+        <View style={[ledgerSection, styles.addSection]}>
+          <Text style={[ledgerDim(), styles.addSectionLabel]}>ADD CATEGORY</Text>
+          <View style={ledgerLine} />
+          {categories.length === 0 && (
+            <Text style={[ledgerDim(), styles.hintText]}>
+              Add a group and category to start tracking spending.
             </Text>
+          )}
+          <View style={styles.addCard}>
+            <Input
+              placeholder="Group (e.g. Fixed)"
+              value={newGroup}
+              onChangeText={setNewGroup}
+            />
+            <Input
+              placeholder="Category name"
+              value={newCategory}
+              onChangeText={setNewCategory}
+            />
             <Pressable
-              onPress={() => handleRemoveGroup(groupName, cats.length)}
-              style={[styles.removeGroupBtn, { backgroundColor: colors.surface }]}
-              hitSlop={8}
+              style={({ pressed }) => [
+                styles.addCategoryBtn,
+                pressed && { opacity: 0.85 },
+                !newCategory.trim() && styles.addCategoryBtnDisabled,
+              ]}
+              onPress={handleCreateCategory}
+              disabled={!newCategory.trim()}
             >
-              <Ionicons name="trash-outline" size={16} color={colors.muted} />
-              <Text variant="caption" style={{ color: colors.muted, marginLeft: spacing.xs }}>
-                Remove group
+              <Text
+                style={[
+                  ledgerText({ fontSize: 15 }),
+                  styles.addCategoryBtnText,
+                  !newCategory.trim() && styles.addCategoryBtnTextDisabled,
+                ]}
+              >
+                Add category
               </Text>
             </Pressable>
           </View>
-          {cats.map((c) => (
-            <RoomCard
-              key={c._id}
-              name={c.name}
-              assigned={c.assigned}
-              spent={c.spent}
-              isEditing={editingCategory === c._id}
-              assignAmount={assignAmount}
-              onAssignAmountChange={setAssignAmount}
-              onSetAssignment={() => handleSetAssignment(c._id)}
-              onCancelEdit={() => setEditingCategory(null)}
-              onStartEdit={() => setEditingCategory(c._id)}
-              onQuickAssign={(amount) => handleQuickAssign(c._id, amount)}
-              onRemove={() => handleRemoveCategory(c._id, c.name)}
-            />
-          ))}
         </View>
-      ))}
 
-      <View style={styles.section}>
-        <Text variant="caption" style={[styles.wingLabel, { color: colors.muted }]}>
-          Add a room
-        </Text>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <Input
-            placeholder="Wing (e.g. Fixed)"
-            value={newGroup}
-            onChangeText={setNewGroup}
-          />
-          <Input
-            placeholder="Room name"
-            value={newCategory}
-            onChangeText={setNewCategory}
-          />
-          <Button onPress={handleCreateCategory} disabled={!newCategory.trim()}>
-            Add room
-          </Button>
-        </View>
-      </View>
-
-      <View style={{ height: insets.bottom + spacing.xxl }} />
-    </ScrollView>
+        <View style={{ height: insets.bottom + spacing.xxl }} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  scroll: { flex: 1 },
   scrollContent: { paddingBottom: spacing.xxl },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+  budgetHeader: {
     paddingBottom: spacing.lg,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  pageTitle: {
+    fontSize: 18,
+    letterSpacing: 1,
   },
-  houseIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
+  pageSubtitle: {
+    fontSize: 14,
+    marginTop: 4,
   },
-  vaultCard: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
-    padding: spacing.lg,
-    borderRadius: radii.lg,
-    borderWidth: 1,
+  categorySection: {
+    paddingTop: spacing.xl,
   },
-  vaultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  section: { paddingHorizontal: spacing.lg, marginBottom: spacing.xl },
   groupHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -254,16 +248,58 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.xs,
   },
-  wingLabel: {
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+  groupLabel: {
+    fontSize: 13,
+    letterSpacing: 1,
   },
-  removeGroupBtn: {
-    flexDirection: 'row',
+  removeBtn: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: '#B91C1C',
+    borderRadius: 0,
+  },
+  addSection: {
+    paddingTop: spacing.xl,
+  },
+  addSectionLabel: {
+    fontSize: 13,
+    letterSpacing: 1,
+    marginBottom: spacing.md,
+  },
+  hintText: {
+    fontSize: 15,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    lineHeight: 22,
+  },
+  addCard: {
+    marginTop: spacing.lg,
+    padding: spacing.xl,
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(185, 28, 28, 0.35)',
+    backgroundColor: 'rgba(30, 10, 10, 0.6)',
+    gap: spacing.lg,
+  },
+  addCategoryBtn: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderWidth: 2,
+    borderColor: '#B91C1C',
+    borderRadius: 0,
     alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.sm,
+    justifyContent: 'center',
+    marginTop: spacing.sm,
   },
-  card: { borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
+  addCategoryBtnDisabled: {
+    borderColor: '#7F1D1D',
+    opacity: 0.6,
+  },
+  addCategoryBtnText: {
+    color: '#B91C1C',
+  },
+  addCategoryBtnTextDisabled: {
+    color: '#7F1D1D',
+  },
 });

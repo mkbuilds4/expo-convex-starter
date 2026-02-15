@@ -10,8 +10,11 @@
 
 import type * as accounts from "../accounts.js";
 import type * as auth from "../auth.js";
+import type * as bills from "../bills.js";
 import type * as budget from "../budget.js";
+import type * as debt from "../debt.js";
 import type * as http from "../http.js";
+import type * as income from "../income.js";
 import type * as networth from "../networth.js";
 import type * as plaid from "../plaid.js";
 import type * as statementExtract from "../statementExtract.js";
@@ -28,8 +31,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   accounts: typeof accounts;
   auth: typeof auth;
+  bills: typeof bills;
   budget: typeof budget;
+  debt: typeof debt;
   http: typeof http;
+  income: typeof income;
   networth: typeof networth;
   plaid: typeof plaid;
   statementExtract: typeof statementExtract;

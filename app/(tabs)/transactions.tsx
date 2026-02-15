@@ -18,6 +18,18 @@ import type { Doc } from '../../convex/_generated/dataModel';
 import { useTheme } from '../../lib/theme-context';
 import { spacing, radii, typography } from '../../lib/theme';
 import {
+  LEDGER_BG,
+  ledgerText,
+  ledgerDim,
+  ledgerLine,
+  ledgerHeader,
+  ledgerHeaderRow,
+  ledgerBtn,
+  ledgerSection,
+  ledgerRow,
+  ledgerEmpty,
+} from '../../lib/ledger-theme';
+import {
   formatCurrency,
   getCurrentMonth,
   parseAmountToCents,
@@ -152,40 +164,34 @@ export default function TransactionsScreen() {
   };
 
   const renderSectionHeader = ({ section }: { section: Section }) => (
-    <View style={styles.sectionHeader}>
-      <Text variant="caption" style={[styles.sectionTitle, { color: colors.muted }]}>
+    <View style={[ledgerSection, { paddingTop: spacing.lg }]}>
+      <Text style={[ledgerDim(), { fontSize: 11, letterSpacing: 1, marginBottom: spacing.sm }]}>
         {section.title}
       </Text>
+      <View style={ledgerLine} />
     </View>
   );
 
   const renderItem = ({ item: t }: { item: TxnWithAccount }) => {
-    const categoryName = t.categoryId ? categoryMap[t.categoryId] : null;
     const isOutflow = t.amount < 0;
+    const categoryName = t.categoryId ? categoryMap[t.categoryId] : null;
+    const subtitle = [categoryName, t.account?.name].filter(Boolean).join(' · ') || null;
     return (
-      <View style={[styles.row, { backgroundColor: colors.surface }]}>
-        <View style={styles.rowLeft}>
-          <View style={[styles.iconWrap, { backgroundColor: colors.background }]}>
-            <Ionicons
-              name={isOutflow ? 'arrow-up-outline' : 'arrow-down-outline'}
-              size={18}
-              color={isOutflow ? colors.error : colors.primary}
-            />
-          </View>
-          <View style={styles.rowMain}>
-            <Text variant="body" style={{ color: colors.text }} numberOfLines={1}>
-              {t.merchantName}
+      <View style={[ledgerRow, { paddingVertical: spacing.md }]}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[ledgerText(), { fontSize: 14 }]} numberOfLines={1}>
+            {t.merchantName}
+          </Text>
+          {subtitle && (
+            <Text style={[ledgerDim(), { fontSize: 11, marginTop: 2 }]} numberOfLines={1}>
+              {subtitle}
             </Text>
-            <Text variant="caption" style={{ color: colors.muted }} numberOfLines={1}>
-              {[categoryName, t.account?.name].filter(Boolean).join(' · ') || 'No category'}
-            </Text>
-          </View>
+          )}
         </View>
         <Text
-          variant="body"
           style={[
-            styles.amount,
-            { color: isOutflow ? colors.error : colors.primary },
+            ledgerText({ fontSize: 14 }),
+            { color: isOutflow ? '#DC2626' : '#B91C1C', marginLeft: spacing.sm },
           ]}
         >
           {formatCurrency(t.amount, { signed: true })}
@@ -195,109 +201,92 @@ export default function TransactionsScreen() {
   };
 
   const listEmpty = (
-    <View style={[styles.empty, { backgroundColor: colors.surface }]}>
-      <View style={[styles.emptyIconWrap, { backgroundColor: colors.background }]}>
-        <Ionicons name="receipt-outline" size={40} color={colors.muted} />
-      </View>
-      <Text variant="cardTitle" style={[styles.emptyTitle, { color: colors.text }]}>
-        No transactions yet
+    <View style={[ledgerEmpty, { paddingTop: spacing.xxl }]}>
+      <Text style={[ledgerDim(), { fontSize: 14, marginBottom: spacing.lg }]}>
+        No transactions yet. Add one or import from bank.
       </Text>
-      <Text variant="body" style={[styles.emptyDesc, { color: colors.muted }]}>
-        Add a transaction manually or link a bank to import from Plaid.
-      </Text>
-      <View style={styles.emptyActions}>
-        <Button onPress={() => setModalVisible(true)} style={styles.emptyBtn}>
-          Add transaction
-        </Button>
-        {hasPlaidAccounts && (
-          <Button
-            variant="secondary"
-            onPress={() => setImportPickerVisible(true)}
-            disabled={syncing}
-            style={styles.emptyBtn}
-          >
-            {syncing ? 'Importing…' : 'Import from bank'}
-          </Button>
-        )}
-      </View>
+      <Pressable
+        style={({ pressed }) => [ledgerBtn, pressed && { opacity: 0.7 }, { marginRight: spacing.sm }]}
+        onPress={() => setModalVisible(true)}
+      >
+        <Text style={ledgerText({ fontSize: 12 })}>+ ADD TXN</Text>
+      </Pressable>
+      {hasPlaidAccounts && (
+        <Pressable
+          style={({ pressed }) => [ledgerBtn, { marginTop: spacing.sm }, pressed && { opacity: 0.7 }]}
+          onPress={() => setImportPickerVisible(true)}
+          disabled={syncing}
+        >
+          <Text style={ledgerText({ fontSize: 12 })}>{syncing ? 'IMPORTING…' : 'IMPORT'}</Text>
+        </Pressable>
+      )}
     </View>
   );
 
   const listHeader =
     transactions.length > 0 ? (
-      <View style={[styles.filterSection, { backgroundColor: colors.background }]}>
-        <View style={[styles.searchWrap, { backgroundColor: colors.surface }]}>
-          <Ionicons name="search" size={18} color={colors.muted} style={styles.searchIcon} />
+      <View style={[ledgerSection, { paddingTop: spacing.lg }]}>
+        <View style={[styles.searchWrap, { borderWidth: 1, borderColor: '#7F1D1D', marginBottom: spacing.sm }]}>
+          <Ionicons name="search" size={18} color="#7F1D1D" style={styles.searchIcon} />
           <Input
             placeholder="Search merchant or notes..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            style={[styles.searchInput, { backgroundColor: 'transparent', marginBottom: 0 }]}
+            style={[styles.searchInput, { backgroundColor: 'transparent', marginBottom: 0, color: '#B91C1C' }]}
+            placeholderTextColor="#7F1D1D"
           />
         </View>
         <View style={styles.filterChipRow}>
           <Pressable
-            style={[
-              styles.filterChip,
-              { backgroundColor: filterCategoryId === 'all' ? colors.primary : colors.surface },
-            ]}
+            style={[ledgerBtn, filterCategoryId !== 'all' && { opacity: 0.6 }]}
             onPress={() => setFilterCategoryId('all')}
           >
-            <Text
-              variant="caption"
-              style={{ color: filterCategoryId === 'all' ? colors.onPrimary : colors.text }}
-            >
-              All
-            </Text>
+            <Text style={ledgerText({ fontSize: 11 })}>ALL</Text>
           </Pressable>
           {categories.map((c) => (
             <Pressable
               key={c._id}
-              style={[
-                styles.filterChip,
-                { backgroundColor: filterCategoryId === c._id ? colors.primary : colors.surface },
-              ]}
+              style={[ledgerBtn, filterCategoryId !== c._id && { opacity: 0.6 }]}
               onPress={() => setFilterCategoryId(c._id)}
             >
-              <Text
-                variant="caption"
-                style={{ color: filterCategoryId === c._id ? colors.onPrimary : colors.text }}
-                numberOfLines={1}
-              >
+              <Text style={ledgerText({ fontSize: 11 })} numberOfLines={1}>
                 {c.name}
               </Text>
             </Pressable>
           ))}
         </View>
+        <View style={[ledgerLine, { marginTop: spacing.md }]} />
       </View>
     ) : null;
 
   return (
     <>
-      <View style={[styles.screen, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
-          <View>
-            <Text variant="title">Transactions</Text>
-            <Text variant="subtitle" style={{ color: colors.muted }}>
-              Spending & income
-            </Text>
+      <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+        <View style={[ledgerHeader, { paddingTop: insets.top, paddingBottom: spacing.md }]}>
+          <View style={ledgerHeaderRow}>
+            <View>
+              <Text style={[ledgerText(), { fontSize: 16, letterSpacing: 1 }]}>TRANSACTIONS</Text>
+              <Text style={[ledgerDim(), { fontSize: 12, marginTop: 2 }]}>Spending & income</Text>
+            </View>
+            <View style={styles.headerActions}>
+              <Pressable
+                style={({ pressed }) => [ledgerBtn, pressed && { opacity: 0.7 }]}
+                onPress={() => setModalVisible(true)}
+              >
+                <Text style={ledgerText({ fontSize: 12 })}>+ TXN</Text>
+              </Pressable>
+              {hasPlaidAccounts && (
+                <Pressable
+                  style={({ pressed }) => [ledgerBtn, pressed && { opacity: 0.7 }]}
+                  onPress={() => setImportPickerVisible(true)}
+                  disabled={syncing}
+                >
+                  <Text style={ledgerText({ fontSize: 12 })}>{syncing ? '…' : 'IMPORT'}</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
-        </View>
-
-        <View style={[styles.actionsRow, { borderBottomColor: colors.surface }]}>
-          <Button onPress={() => setModalVisible(true)} style={styles.actionBtn}>
-            Add transaction
-          </Button>
-          {hasPlaidAccounts && (
-            <Button
-              variant="secondary"
-              onPress={() => setImportPickerVisible(true)}
-              disabled={syncing}
-              style={styles.actionBtn}
-            >
-              {syncing ? 'Importing…' : 'Import from bank'}
-            </Button>
-          )}
+          <View style={ledgerLine} />
         </View>
 
         {transactions.length === 0 ? (
@@ -311,8 +300,8 @@ export default function TransactionsScreen() {
             ListHeaderComponent={listHeader}
             ListEmptyComponent={
               filteredTransactions.length === 0 ? (
-                <View style={[styles.empty, { backgroundColor: colors.surface }]}>
-                  <Text variant="body" style={{ color: colors.muted }}>
+                <View style={[ledgerEmpty, { paddingTop: spacing.xl }]}>
+                  <Text style={ledgerDim({ fontSize: 14 })}>
                     No transactions match your search or filter.
                   </Text>
                 </View>
@@ -327,7 +316,7 @@ export default function TransactionsScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor={colors.muted}
+                tintColor="#7F1D1D"
               />
             }
           />
@@ -528,80 +517,21 @@ export default function TransactionsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    gap: spacing.xs,
-  },
-  actionsRow: {
+  headerActions: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    borderBottomWidth: 1,
-  },
-  actionBtn: { flex: 1 },
-  filterSection: {
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
   },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radii.md,
-    marginBottom: spacing.sm,
+    borderRadius: 0,
     paddingLeft: spacing.md,
   },
   searchIcon: { marginRight: spacing.sm },
   searchInput: { flex: 1 },
   filterChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  filterChip: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.sm,
-  },
-  sectionHeader: {
-    paddingVertical: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  sectionTitle: { textTransform: 'uppercase', letterSpacing: 0.5 },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: radii.md,
-    marginBottom: spacing.sm,
-  },
-  rowLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  rowMain: { flex: 1, minWidth: 0, marginRight: spacing.md },
-  amount: { fontWeight: typography.body.fontWeight, marginLeft: spacing.sm },
   emptyContainer: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: 'center' },
-  empty: {
-    padding: spacing.xl,
-    borderRadius: radii.lg,
-    alignItems: 'center',
-  },
-  emptyIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  emptyTitle: { marginBottom: spacing.sm, textAlign: 'center' },
-  emptyDesc: { textAlign: 'center', marginBottom: spacing.xl },
-  emptyActions: { gap: spacing.sm, width: '100%' },
-  emptyBtn: {},
   modalOverlay: { flex: 1 },
   modalContent: { flex: 1, paddingHorizontal: spacing.lg },
   modalHeader: {

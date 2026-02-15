@@ -28,6 +28,13 @@ export function formatMonth(month: string): string {
   return date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 }
 
+/** Format YYYY-MM-DD for display e.g. "Mar 15, 2027" */
+export function formatDateLong(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, (m ?? 1) - 1, d ?? 1);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 /** Parse cents from user input e.g. "12.50" -> 1250 */
 export function parseAmountToCents(input: string): number {
   const cleaned = input.replace(/[^0-9.-]/g, '');

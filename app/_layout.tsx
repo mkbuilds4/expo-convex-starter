@@ -4,9 +4,11 @@ import { StatusBar } from 'expo-status-bar';
 import Toast, { SuccessToast, ErrorToast } from 'react-native-toast-message';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react';
+import { useConvexAuth } from 'convex/react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ThemeProvider, useTheme } from '../lib/theme-context';
+import { FinancialStateProvider } from '../lib/financial-state-context';
 import { convex } from '../lib/convex';
 import { authClient } from '../lib/auth-client';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -29,7 +31,8 @@ function ThemedToast() {
 }
 
 function RootLayoutContent() {
-  return (
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const content = (
     <>
       <ThemedStatusBar />
       <ErrorBoundary>
@@ -38,6 +41,11 @@ function RootLayoutContent() {
       <ThemedToast />
     </>
   );
+  // Only run debt query when authenticated; otherwise useFinancialState() falls back to default (red).
+  if (!isLoading && isAuthenticated) {
+    return <FinancialStateProvider>{content}</FinancialStateProvider>;
+  }
+  return content;
 }
 
 export default function RootLayout() {

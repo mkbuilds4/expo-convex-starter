@@ -25,10 +25,10 @@ export function DebtCard({
 }: DebtCardProps) {
   const { colors } = useTheme();
   const isCredit = type === 'credit';
-  const metaphorLabel = isCredit ? 'Boxes in the house' : 'Locked wing';
+  const typeLabel = isCredit ? 'Credit card' : 'Loan';
   const hint = isCredit
-    ? 'Each payment removes clutter and frees space'
-    : 'Each payment unlocks more of your house';
+    ? 'Each payment reduces the balance'
+    : 'Each payment pays down the loan';
 
   return (
     <Pressable
@@ -52,7 +52,7 @@ export function DebtCard({
         </View>
         <View style={styles.titleBlock}>
           <Text variant="caption" style={[styles.metaphorLabel, { color: colors.muted }]}>
-            {metaphorLabel}
+            {typeLabel}
           </Text>
           <Text variant="body" style={{ color: colors.text, fontWeight: '600' }} numberOfLines={1}>
             {name}

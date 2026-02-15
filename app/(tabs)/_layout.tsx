@@ -6,6 +6,8 @@ import { useConvexAuth } from 'convex/react';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../lib/theme-context';
 import { spacing } from '../../lib/theme';
+import { LEDGER_BG } from '../../lib/ledger-theme';
+import { useLedgerAccent } from '../../lib/financial-state-context';
 
 const AUTH_SETTLE_MS = 2000;
 
@@ -14,6 +16,7 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { colors } = useTheme();
+  const { accent, accentDim } = useLedgerAccent();
   const authSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -35,8 +38,8 @@ export default function TabsLayout() {
   }, [isAuthenticated, isLoading]);
 
   const tabBarStyle = {
-    backgroundColor: colors.surface,
-    borderTopColor: colors.background,
+    backgroundColor: LEDGER_BG,
+    borderTopColor: accent,
     borderTopWidth: 1,
     height: 56 + insets.bottom,
     paddingTop: spacing.sm,
@@ -49,8 +52,8 @@ export default function TabsLayout() {
   const screenOptions = {
     headerShown: false,
     tabBarStyle,
-    tabBarActiveTintColor: colors.primary,
-    tabBarInactiveTintColor: colors.muted,
+    tabBarActiveTintColor: accent,
+    tabBarInactiveTintColor: accentDim,
     tabBarLabelStyle: {
       fontSize: 11,
       fontWeight: '500' as const,
@@ -80,8 +83,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="budget"
         options={{
-          title: 'Your financial house',
-          tabBarLabel: 'House',
+          title: 'Budget',
+          tabBarLabel: 'Budget',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'business' : 'business-outline'}

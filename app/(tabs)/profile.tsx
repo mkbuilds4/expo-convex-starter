@@ -4,7 +4,17 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { authClient } from '../../lib/auth-client';
 import { useTheme } from '../../lib/theme-context';
-import { spacing, radii } from '../../lib/theme';
+import { spacing } from '../../lib/theme';
+import {
+  LEDGER_BG,
+  ledgerText,
+  ledgerDim,
+  ledgerLine,
+  ledgerHeader,
+  ledgerHeaderRow,
+  ledgerSection,
+  ledgerRow,
+} from '../../lib/ledger-theme';
 import { Text } from '../../components';
 
 function formatMemberSince(date: Date | string | undefined): string | null {
@@ -31,142 +41,91 @@ export default function ProfileScreen() {
   const memberSince = formatMemberSince(user?.createdAt);
 
   return (
-    <ScrollView
-      style={[styles.screen, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text variant="title">Profile</Text>
-          <Text variant="subtitle">Your account info</Text>
+    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: LEDGER_BG }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[ledgerHeader, { paddingBottom: spacing.md }]}>
+          <View style={[ledgerHeaderRow, { alignItems: 'center' }]}>
+            <View>
+              <Text style={[ledgerText(), { fontSize: 16, letterSpacing: 1 }]}>PROFILE</Text>
+              <Text style={[ledgerDim(), { fontSize: 12, marginTop: 2 }]}>Your account info</Text>
+            </View>
+            <Pressable
+              onPress={() => router.push('/(tabs)/settings')}
+              style={({ pressed }) => [styles.settingsBtn, pressed && { opacity: 0.7 }]}
+            >
+              <Ionicons name="settings-outline" size={22} color="#7F1D1D" />
+            </Pressable>
+          </View>
+          <View style={ledgerLine} />
         </View>
-        <Pressable
-          onPress={() => router.push('/(tabs)/settings')}
-          style={({ pressed }) => [styles.settingsButton, pressed && { opacity: 0.7 }]}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Open Settings"
-        >
-          <Ionicons name="settings-outline" size={24} color={colors.muted} />
-        </Pressable>
-      </View>
 
-      <View style={styles.section}>
-        <Text variant="caption" style={[styles.sectionLabel, { color: colors.muted }]}>
-          Account
-        </Text>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+        <View style={ledgerSection}>
+          <Text style={[ledgerDim(), styles.sectionLabel]}>ACCOUNT</Text>
+          <View style={ledgerLine} />
           <View style={styles.avatarRow}>
-            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.avatarText, { color: colors.onPrimary }]}>{initial}</Text>
+            <View style={[styles.avatar, { backgroundColor: '#B91C1C' }]}>
+              <Text style={[ledgerText(), { fontSize: 28, color: '#fff' }]}>{initial}</Text>
             </View>
             <Pressable
               onPress={() => router.push('/edit-profile')}
-              style={({ pressed }) => [styles.editPhotoLink, pressed && { opacity: 0.8 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Edit profile photo"
+              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
             >
-              <Text variant="caption" style={{ color: colors.primary }}>Edit photo</Text>
+              <Text style={ledgerText({ fontSize: 12 })}>EDIT PHOTO</Text>
             </Pressable>
           </View>
-
           <Pressable
-            style={({ pressed }) => [styles.row, pressed && { opacity: 0.8 }]}
+            style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
             onPress={() => router.push('/edit-profile')}
-            accessibilityRole="button"
-            accessibilityLabel="Edit profile"
           >
-            <View style={styles.labelValue}>
-              <Text variant="caption" style={[styles.label, { color: colors.muted }]}>
-                Name
-              </Text>
-              <Text variant="body" style={{ color: colors.text }}>
-                {displayName}
-              </Text>
+            <View>
+              <Text style={[ledgerDim(), { fontSize: 11 }]}>Name</Text>
+              <Text style={[ledgerText(), { fontSize: 14 }]}>{displayName}</Text>
             </View>
-            <Text variant="body" style={{ color: colors.primary }}>Edit</Text>
+            <Text style={ledgerText({ fontSize: 12 })}>EDIT</Text>
           </Pressable>
-
-          <View style={[styles.divider, { backgroundColor: colors.background }]} />
-
-          <View style={styles.row}>
-            <View style={styles.labelValue}>
-              <Text variant="caption" style={[styles.label, { color: colors.muted }]}>
-                Email
-              </Text>
-              <Text variant="body" style={{ color: colors.text }} numberOfLines={1}>
+          <View style={ledgerRow}>
+            <View>
+              <Text style={[ledgerDim(), { fontSize: 11 }]}>Email</Text>
+              <Text style={[ledgerText(), { fontSize: 14 }]} numberOfLines={1}>
                 {email}
               </Text>
             </View>
           </View>
-
-          {memberSince ? (
-            <>
-              <View style={[styles.divider, { backgroundColor: colors.background }]} />
-              <View style={styles.row}>
-                <View style={styles.labelValue}>
-                  <Text variant="caption" style={[styles.label, { color: colors.muted }]}>
-                    Member since
-                  </Text>
-                  <Text variant="body" style={{ color: colors.text }}>
-                    {memberSince}
-                  </Text>
-                </View>
+          {memberSince && (
+            <View style={ledgerRow}>
+              <View>
+                <Text style={[ledgerDim(), { fontSize: 11 }]}>Member since</Text>
+                <Text style={[ledgerText(), { fontSize: 14 }]}>{memberSince}</Text>
               </View>
-            </>
-          ) : null}
+            </View>
+          )}
+          <View style={ledgerLine} />
         </View>
-      </View>
-    </ScrollView>
+
+        <View style={{ height: insets.bottom + spacing.xxl * 2 }} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  scrollContent: {
-    paddingBottom: spacing.xxl * 2,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
-  },
-  headerLeft: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  settingsButton: {
-    padding: spacing.sm,
-    marginRight: -spacing.sm,
-  },
-  section: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
-  },
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: spacing.xxl },
   sectionLabel: {
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontSize: 11,
+    letterSpacing: 1,
     marginBottom: spacing.sm,
-    paddingHorizontal: spacing.xs,
   },
-  card: {
-    borderRadius: radii.lg,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    overflow: 'hidden',
-  },
+  settingsBtn: { padding: spacing.sm },
   avatarRow: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    paddingVertical: spacing.xl,
     gap: spacing.sm,
-  },
-  editPhotoLink: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
   },
   avatar: {
     width: 72,
@@ -174,25 +133,5 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 28,
-    fontWeight: '600',
-  },
-  row: {
-    paddingVertical: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  labelValue: {
-    flex: 1,
-    gap: spacing.xs,
-    minWidth: 0,
-  },
-  label: { marginBottom: 0 },
-  divider: {
-    height: 1,
-    marginVertical: spacing.xs,
   },
 });

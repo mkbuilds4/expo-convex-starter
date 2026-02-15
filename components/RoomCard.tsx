@@ -69,7 +69,7 @@ export function RoomCard({
               {name}
             </Text>
             <Text variant="caption" style={{ color: colors.muted, marginTop: 2 }}>
-              {isOverspent ? 'This room is over budget' : isSparse ? 'This room has space' : 'On track'}
+              {isOverspent ? 'Over budget' : isSparse ? 'Has space' : 'On track'}
             </Text>
           </View>
           {onRemove ? (

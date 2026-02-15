@@ -1,6 +1,7 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useTheme } from '../lib/theme-context';
 import { spacing } from '../lib/theme';
+import { useLedgerAccent } from '../lib/financial-state-context';
 import { Text } from './Text';
 
 type BackHeaderProps = {
@@ -8,10 +9,16 @@ type BackHeaderProps = {
   onBack: () => void;
   subtitle?: string;
   disabled?: boolean;
+  variant?: 'default' | 'ledger';
 };
 
-export function BackHeader({ title, onBack, subtitle, disabled }: BackHeaderProps) {
+export function BackHeader({ title, onBack, subtitle, disabled, variant = 'default' }: BackHeaderProps) {
   const { colors } = useTheme();
+  const { accent, accentDim } = useLedgerAccent();
+  const isLedger = variant === 'ledger';
+  const arrowColor = isLedger ? accentDim : colors.muted;
+  const titleColor = isLedger ? accent : colors.text;
+  const subtitleColor = isLedger ? accentDim : colors.muted;
 
   return (
     <View style={styles.wrapper}>
@@ -27,17 +34,17 @@ export function BackHeader({ title, onBack, subtitle, disabled }: BackHeaderProp
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <Text variant="caption" style={[styles.backArrow, { color: colors.muted }]}>
+          <Text variant="caption" style={[styles.backArrow, { color: arrowColor }]}>
             ←
           </Text>
         </Pressable>
-        <Text variant="cardTitle" style={styles.title}>
+        <Text variant="cardTitle" style={[styles.title, { color: titleColor }]}>
           {title}
         </Text>
         <View style={styles.spacer} />
       </View>
       {subtitle ? (
-        <Text variant="subtitle" style={styles.subtitle}>
+        <Text variant="subtitle" style={[styles.subtitle, { color: subtitleColor }]}>
           {subtitle}
         </Text>
       ) : null}

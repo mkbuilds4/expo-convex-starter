@@ -7,6 +7,15 @@ import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { useTheme } from '../../../lib/theme-context';
 import { spacing, radii } from '../../../lib/theme';
+import {
+  LEDGER_BG,
+  ledgerText,
+  ledgerDim,
+  ledgerLine,
+  ledgerHeader,
+  ledgerSection,
+  ledgerRow,
+} from '../../../lib/ledger-theme';
 import { formatCurrency, parseAmountToCents, parsePaymentDueDate } from '../../../lib/format';
 import { Text, Button, Input, BackHeader } from '../../../components';
 import Toast from 'react-native-toast-message';
@@ -60,20 +69,20 @@ export default function AccountDetailScreen() {
   if (id === undefined) return null;
   if (account === undefined) {
     return (
-      <View style={[styles.screen, { backgroundColor: colors.background }]}>
-        <BackHeader title="Account" onBack={() => router.back()} />
-        <View style={[styles.loading, { backgroundColor: colors.background }]}>
-          <Text variant="body" style={{ color: colors.muted }}>Loading…</Text>
+      <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+        <BackHeader variant="ledger" title="Account" onBack={() => router.back()} />
+        <View style={[styles.loading, { backgroundColor: LEDGER_BG }]}>
+          <Text style={ledgerDim({ fontSize: 14 })}>Loading…</Text>
         </View>
       </View>
     );
   }
   if (account === null) {
     return (
-      <View style={[styles.screen, { backgroundColor: colors.background }]}>
-        <BackHeader title="Account" onBack={() => router.back()} />
-        <View style={[styles.loading, { backgroundColor: colors.background }]}>
-          <Text variant="body" style={{ color: colors.muted }}>Account not found</Text>
+      <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+        <BackHeader variant="ledger" title="Account" onBack={() => router.back()} />
+        <View style={[styles.loading, { backgroundColor: LEDGER_BG }]}>
+          <Text style={ledgerDim({ fontSize: 14 })}>Account not found</Text>
           <Button onPress={() => router.back()}>Back to accounts</Button>
         </View>
       </View>
@@ -127,136 +136,117 @@ export default function AccountDetailScreen() {
   const reconcileDiff = account.currentBalance - parseAmountToCents(reconcileBalance || '0');
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xxl }]}
         showsVerticalScrollIndicator={false}
       >
-        <BackHeader title={account.name} subtitle={typeConfig.label} onBack={() => router.back()} />
+        <BackHeader variant="ledger" title={account.name} subtitle={typeConfig.label} onBack={() => router.back()} />
 
-        {/* Overview card */}
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-          <View style={styles.cardRow}>
-            <View style={[styles.iconWrap, { backgroundColor: accentColor + (isDark ? '28' : '20') }]}>
-              <Ionicons name={typeConfig.icon} size={28} color={accentColor} />
-            </View>
-            <View style={styles.balanceBlock}>
-              <Text variant="caption" style={{ color: colors.muted }}>Balance</Text>
-              <Text variant="title" style={{ color: accentColor }}>
-                {formatCurrency(account.currentBalance)}
-              </Text>
-            </View>
+        <View style={[ledgerHeader, { paddingBottom: spacing.md }]}>
+          <View style={ledgerLine} />
+          <View style={[ledgerRow, { paddingVertical: spacing.lg }]}>
+            <Text style={ledgerDim({ fontSize: 12 })}>Balance</Text>
+            <Text style={[ledgerText(), { fontSize: 18, color: isDebt ? '#DC2626' : '#B91C1C' }]}>
+              {formatCurrency(account.currentBalance)}
+            </Text>
           </View>
           {isDebt && (account.interestRate != null || account.minimumPayment != null || account.nextPaymentDueDate) && (
-            <View style={[styles.detailRow, { borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
+            <>
+              <View style={ledgerLine} />
               {account.interestRate != null && (
-                <View style={styles.detailItem}>
-                  <Text variant="caption" style={{ color: colors.muted }}>APR</Text>
-                  <Text variant="body" style={{ color: colors.text, fontWeight: '600' }}>
-                    {(account.interestRate * 100).toFixed(1)}%
-                  </Text>
+                <View style={ledgerRow}>
+                  <Text style={ledgerDim({ fontSize: 12 })}>APR</Text>
+                  <Text style={ledgerText({ fontSize: 14 })}>{(account.interestRate * 100).toFixed(1)}%</Text>
                 </View>
               )}
               {account.minimumPayment != null && (
-                <View style={styles.detailItem}>
-                  <Text variant="caption" style={{ color: colors.muted }}>Min payment</Text>
-                  <Text variant="body" style={{ color: colors.text, fontWeight: '600' }}>
-                    {formatCurrency(account.minimumPayment)}/mo
-                  </Text>
+                <View style={ledgerRow}>
+                  <Text style={ledgerDim({ fontSize: 12 })}>Min payment</Text>
+                  <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(account.minimumPayment)}/mo</Text>
                 </View>
               )}
               {account.nextPaymentDueDate && (
-                <View style={styles.detailItem}>
-                  <Text variant="caption" style={{ color: colors.muted }}>Due date</Text>
-                  <Text variant="body" style={{ color: colors.text, fontWeight: '600' }}>
-                    {formatDueDate(account.nextPaymentDueDate)}
-                  </Text>
+                <View style={ledgerRow}>
+                  <Text style={ledgerDim({ fontSize: 12 })}>Due date</Text>
+                  <Text style={ledgerText({ fontSize: 14 })}>{formatDueDate(account.nextPaymentDueDate)}</Text>
                 </View>
               )}
-            </View>
+            </>
           )}
+          <View style={ledgerLine} />
         </View>
 
-        {/* Transactions */}
-        <View style={styles.section}>
-          <Text variant="caption" style={[styles.sectionTitle, { color: colors.muted }]}>
-            Recent transactions
+        <View style={ledgerSection}>
+          <Text style={[ledgerDim(), { fontSize: 11, letterSpacing: 1, marginBottom: spacing.sm }]}>
+            RECENT TRANSACTIONS
           </Text>
+          <View style={ledgerLine} />
           {transactions.length === 0 ? (
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-              <Text variant="body" style={{ color: colors.muted, textAlign: 'center' }}>
-                No transactions for this account yet.
-              </Text>
-            </View>
+            <Text style={[ledgerDim(), { fontSize: 14, paddingVertical: spacing.xl }]}>
+              No transactions for this account yet.
+            </Text>
           ) : (
             transactions.slice(0, 20).map((t) => {
               const isOut = t.amount < 0;
               const catName = t.categoryId ? categoryMap[t.categoryId] : null;
               return (
-                <View
-                  key={t._id}
-                  style={[styles.txnRow, { backgroundColor: colors.surface, borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
-                >
-                  <View style={styles.txnLeft}>
-                    <Text variant="body" style={{ color: colors.text }} numberOfLines={1}>
+                <View key={t._id} style={[ledgerRow, { paddingVertical: spacing.md }]}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[ledgerText(), { fontSize: 14 }]} numberOfLines={1}>
                       {t.merchantName}
                     </Text>
                     {catName && (
-                      <Text variant="caption" style={{ color: colors.muted }} numberOfLines={1}>
+                      <Text style={[ledgerDim(), { fontSize: 11, marginTop: 2 }]} numberOfLines={1}>
                         {catName}
                       </Text>
                     )}
                   </View>
-                  <Text variant="body" style={{ color: isOut ? colors.error : colors.primary, fontWeight: '600' }}>
+                  <Text style={[ledgerText({ fontSize: 14 }), { color: isOut ? '#DC2626' : '#B91C1C' }]}>
                     {formatCurrency(t.amount, { signed: true })}
                   </Text>
                 </View>
               );
             })
           )}
+          <View style={ledgerLine} />
         </View>
 
-        {/* Settings / actions */}
-        <View style={styles.section}>
-          <Text variant="caption" style={[styles.sectionTitle, { color: colors.muted }]}>
-            Settings
+        <View style={ledgerSection}>
+          <Text style={[ledgerDim(), { fontSize: 11, letterSpacing: 1, marginBottom: spacing.sm }]}>
+            SETTINGS
           </Text>
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
+          <View style={ledgerLine} />
+          <Pressable
+            style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
+            onPress={() => {
+              setReconcileBalance((account.currentBalance / 100).toFixed(2));
+              setReconcileOpen(true);
+            }}
+          >
+            <Text style={[ledgerText(), { fontSize: 14 }]}>Reconcile balance</Text>
+            <Ionicons name="chevron-forward" size={18} color="#7F1D1D" />
+          </Pressable>
+          {isDebt && (
             <Pressable
-              style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
               onPress={() => {
-                setReconcileBalance((account.currentBalance / 100).toFixed(2));
-                setReconcileOpen(true);
+                setEditRate(account.interestRate != null ? String(account.interestRate * 100) : '');
+                setEditMinPay(account.minimumPayment != null ? (account.minimumPayment / 100).toFixed(2) : '');
+                setEditDueDate(account.nextPaymentDueDate ?? '');
+                setEditOpen(true);
               }}
             >
-              <Ionicons name="sync-outline" size={22} color={colors.primary} />
-              <Text variant="body" style={{ color: colors.text, flex: 1 }}>Reconcile balance</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+              <Text style={[ledgerText(), { fontSize: 14 }]}>Edit details (APR, due date)</Text>
+              <Ionicons name="chevron-forward" size={18} color="#7F1D1D" />
             </Pressable>
-            {isDebt && (
-              <Pressable
-                style={({ pressed }) => [styles.menuRow, styles.menuRowBorder, { borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }, pressed && { opacity: 0.7 }]}
-                onPress={() => {
-                  setEditRate(account.interestRate != null ? String(account.interestRate * 100) : '');
-                  setEditMinPay(account.minimumPayment != null ? (account.minimumPayment / 100).toFixed(2) : '');
-                  setEditDueDate(account.nextPaymentDueDate ?? '');
-                  setEditOpen(true);
-                }}
-              >
-                <Ionicons name="pencil-outline" size={22} color={colors.primary} />
-                <Text variant="body" style={{ color: colors.text, flex: 1 }}>Edit details (APR, due date)</Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-              </Pressable>
-            )}
-            <Pressable
-              style={({ pressed }) => [styles.menuRow, styles.menuRowBorder, { borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }, pressed && { opacity: 0.7 }]}
-              onPress={handleDelete}
-            >
-              <Ionicons name="trash-outline" size={22} color={colors.error} />
-              <Text variant="body" style={{ color: colors.error, flex: 1 }}>Remove account</Text>
-            </Pressable>
-          </View>
+          )}
+          <Pressable style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]} onPress={handleDelete}>
+            <Text style={[ledgerText(), { fontSize: 14, color: '#DC2626' }]}>Remove account</Text>
+            <Ionicons name="chevron-forward" size={18} color="#7F1D1D" />
+          </Pressable>
+          <View style={ledgerLine} />
         </View>
       </ScrollView>
 
@@ -313,31 +303,6 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: spacing.lg },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
-  card: {
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-  },
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
-  iconWrap: { width: 56, height: 56, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' },
-  balanceBlock: { flex: 1 },
-  detailRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xl, marginTop: spacing.lg, paddingTop: spacing.lg, borderTopWidth: 1 },
-  detailItem: {},
-  section: { marginTop: spacing.xl },
-  sectionTitle: { textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: spacing.sm },
-  txnRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: radii.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-  },
-  txnLeft: { flex: 1, minWidth: 0, marginRight: spacing.md },
-  menuRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
-  menuRowBorder: { borderTopWidth: 1 },
   modalOverlay: { flex: 1, justifyContent: 'center', padding: spacing.xl },
   modalCardWrap: { maxWidth: 400, width: '100%', alignSelf: 'center' },
   modalCard: { borderRadius: radii.lg, padding: spacing.xl },
