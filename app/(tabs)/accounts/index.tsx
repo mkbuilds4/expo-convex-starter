@@ -20,7 +20,8 @@ import {
   ledgerSection,
   ledgerRow,
 } from '../../../lib/ledger-theme';
-import { formatCurrency, parseAmountToCents, parsePaymentDueDate } from '../../../lib/format';
+import { formatCurrency, formatCurrencyOrHide, parseAmountToCents, parsePaymentDueDate } from '../../../lib/format';
+import { useHideAmounts } from '../../../lib/hide-amounts-context';
 import { Text, Button, Input } from '../../../components';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +37,7 @@ const ACCOUNT_TYPES = [
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { hideAmounts } = useHideAmounts();
   const { colors, resolvedScheme } = useTheme();
   const isDark = resolvedScheme === 'dark';
   const accounts = useQuery(api.accounts.list) ?? [];
@@ -282,7 +284,7 @@ export default function AccountsScreen() {
               <View style={ledgerSummaryRow}>
                 <Text style={ledgerDim({ fontSize: 12 })}>NET WORTH</Text>
                 <Text style={[ledgerText(), { fontSize: 16 }]}>
-                  {formatCurrency(netWorth, { signed: netWorth !== 0 })}
+                  {formatCurrencyOrHide(netWorth, hideAmounts, { signed: netWorth !== 0 })}
                 </Text>
               </View>
               <View style={ledgerLine} />
@@ -310,7 +312,7 @@ export default function AccountsScreen() {
                     onPress={() => router.push(`/(tabs)/accounts/${acc._id}`)}
                   >
                     <Text style={[ledgerText(), { fontSize: 14, flex: 1 }]} numberOfLines={1}>{acc.name}</Text>
-                    <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(acc.currentBalance)}</Text>
+                    <Text style={ledgerText({ fontSize: 14 })}>{formatCurrencyOrHide(acc.currentBalance, hideAmounts)}</Text>
                   </Pressable>
                 ))}
                 <View style={ledgerLine} />
@@ -328,7 +330,7 @@ export default function AccountsScreen() {
                     onPress={() => router.push(`/(tabs)/accounts/${acc._id}`)}
                   >
                     <Text style={[ledgerText(), { fontSize: 14, flex: 1 }]} numberOfLines={1}>{acc.name}</Text>
-                    <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(acc.currentBalance)}</Text>
+                    <Text style={ledgerText({ fontSize: 14 })}>{formatCurrencyOrHide(acc.currentBalance, hideAmounts)}</Text>
                   </Pressable>
                 ))}
                 <View style={ledgerLine} />
@@ -360,7 +362,7 @@ export default function AccountsScreen() {
                 <View style={[styles.balanceRow, { backgroundColor: colors.background }]}>
                   <Text variant="caption" style={{ color: colors.muted }}>App balance</Text>
                   <Text variant="body" style={{ color: colors.text, fontWeight: '600' }}>
-                    {formatCurrency(reconcileAccount.currentBalance)}
+                    {formatCurrencyOrHide(reconcileAccount.currentBalance, hideAmounts)}
                   </Text>
                 </View>
                 <Input
@@ -374,7 +376,7 @@ export default function AccountsScreen() {
                     <Text variant="caption" style={{ color: reconcileDiff === 0 ? colors.primary : colors.error, fontWeight: '600' }}>
                       {reconcileDiff === 0
                         ? 'Balances match'
-                        : `Difference: ${formatCurrency(Math.abs(reconcileDiff), { signed: true })}`}
+                        : `Difference: ${formatCurrencyOrHide(Math.abs(reconcileDiff), hideAmounts, { signed: true })}`}
                     </Text>
                   </View>
                 )}

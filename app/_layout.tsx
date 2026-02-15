@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ThemeProvider, useTheme } from '../lib/theme-context';
 import { FinancialStateProvider } from '../lib/financial-state-context';
+import { HideAmountsProvider } from '../lib/hide-amounts-context';
 import { convex } from '../lib/convex';
 import { authClient } from '../lib/auth-client';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -43,7 +44,11 @@ function RootLayoutContent() {
   );
   // Only run debt query when authenticated; otherwise useFinancialState() falls back to default (red).
   if (!isLoading && isAuthenticated) {
-    return <FinancialStateProvider>{content}</FinancialStateProvider>;
+    return (
+      <FinancialStateProvider>
+        <HideAmountsProvider>{content}</HideAmountsProvider>
+      </FinancialStateProvider>
+    );
   }
   return content;
 }

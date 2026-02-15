@@ -1,3 +1,11 @@
+import { Platform } from 'react-native';
+
+/**
+ * Single font family for the app (ledger-style monospace).
+ * Use this everywhere so typography is consistent.
+ */
+export const appFontFamily = Platform.select({ ios: 'Menlo', android: 'monospace' }) as string;
+
 /**
  * Minimal color scheme. Use only these tokens—no extra colors.
  *
@@ -59,26 +67,32 @@ export const radii = {
 
 export const typography = {
   title: {
+    fontFamily: appFontFamily,
     fontSize: 28,
     fontWeight: '700' as const,
   },
   cardTitle: {
+    fontFamily: appFontFamily,
     fontSize: 20,
     fontWeight: '600' as const,
   },
   body: {
+    fontFamily: appFontFamily,
     fontSize: 16,
     fontWeight: '400' as const,
   },
   bodySmall: {
+    fontFamily: appFontFamily,
     fontSize: 15,
     fontWeight: '400' as const,
   },
   caption: {
+    fontFamily: appFontFamily,
     fontSize: 14,
     fontWeight: '400' as const,
   },
   button: {
+    fontFamily: appFontFamily,
     fontSize: 16,
     fontWeight: '500' as const,
   },

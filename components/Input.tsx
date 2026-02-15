@@ -23,6 +23,7 @@ export function Input({ style, ...rest }: InputProps) {
           borderRadius: radii.md,
           paddingVertical: 14,
           paddingHorizontal: spacing.lg,
+          fontFamily: typography.body.fontFamily,
           fontSize: typography.body.fontSize,
           color: colors.text,
           marginBottom: spacing.md,

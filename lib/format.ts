@@ -1,3 +1,5 @@
+const HIDDEN_AMOUNT_PLACEHOLDER = '••••';
+
 /** Format amount in cents to currency string */
 export function formatCurrency(cents: number, options?: { signed?: boolean }): string {
   const value = cents / 100;
@@ -11,6 +13,19 @@ export function formatCurrency(cents: number, options?: { signed?: boolean }): s
     return value < 0 ? `-${formatted}` : `+${formatted}`;
   }
   return formatted;
+}
+
+/** When hide is true returns placeholder (e.g. ••••); otherwise same as formatCurrency. Use for sensitive amounts when user has “hide amounts” on. */
+export function formatCurrencyOrHide(cents: number, hide: boolean, options?: { signed?: boolean }): string {
+  return hide ? HIDDEN_AMOUNT_PLACEHOLDER : formatCurrency(cents, options);
+}
+
+/** Days left in the current month (including today). Minimum 0. */
+export function getDaysLeftInMonth(): number {
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const daysLeft = lastDay.getDate() - now.getDate() + 1;
+  return Math.max(0, daysLeft);
 }
 
 /** Current month in YYYY-MM */

@@ -15,10 +15,10 @@ import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { Doc } from '../../convex/_generated/dataModel';
-import { useTheme } from '../../lib/theme-context';
-import { spacing, radii, typography } from '../../lib/theme';
+import { spacing, radii } from '../../lib/theme';
 import {
   LEDGER_BG,
+  LEDGER_FONT,
   ledgerText,
   ledgerDim,
   ledgerLine,
@@ -28,12 +28,14 @@ import {
   ledgerSection,
   ledgerRow,
   ledgerEmpty,
+  ledgerSectionLabel,
 } from '../../lib/ledger-theme';
+import { useLedgerStyles } from '../../lib/financial-state-context';
 import {
   formatCurrency,
-  getCurrentMonth,
   parseAmountToCents,
   formatTransactionDateLabel,
+  formatDateLong,
 } from '../../lib/format';
 import { Text, Button, Input } from '../../components';
 import Toast from 'react-native-toast-message';
@@ -43,18 +45,22 @@ type TxnWithAccount = Doc<'transactions'> & { account?: Doc<'accounts'> };
 
 type Section = { title: string; data: TxnWithAccount[] };
 
+const todayDate = () => new Date().toISOString().slice(0, 10);
+
 export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { accent, accentDim } = useLedgerStyles();
   const transactions = useQuery(api.transactions.listAll, { limit: 150 }) ?? [];
   const accounts = useQuery(api.accounts.list) ?? [];
   const categories = useQuery(api.budget.listCategories) ?? [];
   const linkedPlaidItems = useQuery(api.plaid.listLinkedPlaidItems) ?? [];
   const createTransaction = useMutation(api.transactions.create);
+  const updateCategory = useMutation(api.transactions.updateCategory);
   const syncPlaidTransactions = useAction(api.plaid.syncPlaidTransactions);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [importPickerVisible, setImportPickerVisible] = useState(false);
+  const [detailTxn, setDetailTxn] = useState<TxnWithAccount | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedImportItemIds, setSelectedImportItemIds] = useState<Id<'plaidItems'>[]>([]);
@@ -63,11 +69,10 @@ export default function TransactionsScreen() {
   const [merchant, setMerchant] = useState('');
   const [notes, setNotes] = useState('');
   const [categoryId, setCategoryId] = useState<Id<'budgetCategories'> | ''>('');
+  const [txnDate, setTxnDate] = useState(todayDate);
   const [isExpense, setIsExpense] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategoryId, setFilterCategoryId] = useState<Id<'budgetCategories'> | 'all'>('all');
-
-  const today = getCurrentMonth();
   const categoryMap = useMemo(() => {
     const m: Record<string, string> = {};
     categories.forEach((c) => { m[c._id] = c.name; });
@@ -143,11 +148,12 @@ export default function TransactionsScreen() {
     if (!accountId || !merchant.trim()) return;
     const cents = parseAmountToCents(amount || '0');
     const finalCents = isExpense ? -Math.abs(cents) : Math.abs(cents);
+    const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(txnDate) ? txnDate : todayDate();
     try {
       await createTransaction({
         accountId,
         amount: finalCents,
-        date: today,
+        date: dateStr,
         merchantName: merchant.trim(),
         categoryId: categoryId || undefined,
         notes: notes.trim() || undefined,
@@ -156,8 +162,19 @@ export default function TransactionsScreen() {
       setMerchant('');
       setNotes('');
       setCategoryId('');
+      setTxnDate(todayDate());
       setModalVisible(false);
       Toast.show({ type: 'success', text1: 'Transaction added' });
+    } catch (e) {
+      Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Failed' });
+    }
+  };
+
+  const handleUpdateCategory = async (txnId: Id<'transactions'>, newCategoryId: Id<'budgetCategories'> | undefined) => {
+    try {
+      await updateCategory({ id: txnId, categoryId: newCategoryId });
+      setDetailTxn((prev) => (prev ? { ...prev, categoryId: newCategoryId } : null));
+      Toast.show({ type: 'success', text1: 'Category updated' });
     } catch (e) {
       Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Failed' });
     }
@@ -177,9 +194,12 @@ export default function TransactionsScreen() {
     const categoryName = t.categoryId ? categoryMap[t.categoryId] : null;
     const subtitle = [categoryName, t.account?.name].filter(Boolean).join(' · ') || null;
     return (
-      <View style={[ledgerRow, { paddingVertical: spacing.md }]}>
+      <Pressable
+        style={({ pressed }) => [ledgerRow, styles.txnRow, pressed && styles.txnRowPressed]}
+        onPress={() => setDetailTxn(t)}
+      >
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[ledgerText(), { fontSize: 14 }]} numberOfLines={1}>
+          <Text style={[ledgerText(), { fontSize: 15 }]} numberOfLines={1}>
             {t.merchantName}
           </Text>
           {subtitle && (
@@ -188,73 +208,93 @@ export default function TransactionsScreen() {
             </Text>
           )}
         </View>
-        <Text
-          style={[
-            ledgerText({ fontSize: 14 }),
-            { color: isOutflow ? '#DC2626' : '#B91C1C', marginLeft: spacing.sm },
-          ]}
-        >
-          {formatCurrency(t.amount, { signed: true })}
-        </Text>
-      </View>
+        <View style={styles.txnRight}>
+          <Text
+            style={[
+              ledgerText({ fontSize: 14 }),
+              { color: isOutflow ? '#DC2626' : accent, marginLeft: spacing.sm },
+            ]}
+          >
+            {formatCurrency(t.amount, { signed: true })}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={accentDim} style={{ marginLeft: spacing.xs }} />
+        </View>
+      </Pressable>
     );
   };
 
   const listEmpty = (
-    <View style={[ledgerEmpty, { paddingTop: spacing.xxl }]}>
-      <Text style={[ledgerDim(), { fontSize: 14, marginBottom: spacing.lg }]}>
-        No transactions yet. Add one or import from bank.
+    <View style={[ledgerEmpty, styles.emptyState]}>
+      <Text style={[ledgerDim(), { fontSize: 15, textAlign: 'center', marginBottom: spacing.lg }]}>
+        No transactions yet. Add one manually or import from your bank.
       </Text>
-      <Pressable
-        style={({ pressed }) => [ledgerBtn, pressed && { opacity: 0.7 }, { marginRight: spacing.sm }]}
-        onPress={() => setModalVisible(true)}
-      >
-        <Text style={ledgerText({ fontSize: 12 })}>+ ADD TXN</Text>
-      </Pressable>
-      {hasPlaidAccounts && (
+      <View style={styles.emptyActions}>
         <Pressable
-          style={({ pressed }) => [ledgerBtn, { marginTop: spacing.sm }, pressed && { opacity: 0.7 }]}
-          onPress={() => setImportPickerVisible(true)}
-          disabled={syncing}
+          style={({ pressed }) => [ledgerBtn, styles.emptyBtn, pressed && { opacity: 0.7 }]}
+          onPress={() => { setTxnDate(todayDate()); setModalVisible(true); }}
         >
-          <Text style={ledgerText({ fontSize: 12 })}>{syncing ? 'IMPORTING…' : 'IMPORT'}</Text>
+          <Text style={ledgerText({ fontSize: 13 })}>+ Add transaction</Text>
         </Pressable>
-      )}
+        {hasPlaidAccounts && (
+          <Pressable
+            style={({ pressed }) => [ledgerBtn, styles.emptyBtn, pressed && { opacity: 0.7 }]}
+            onPress={() => setImportPickerVisible(true)}
+            disabled={syncing}
+          >
+            <Text style={ledgerText({ fontSize: 13 })}>{syncing ? 'Importing…' : 'Import from bank'}</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 
   const listHeader =
     transactions.length > 0 ? (
-      <View style={[ledgerSection, { paddingTop: spacing.lg }]}>
-        <View style={[styles.searchWrap, { borderWidth: 1, borderColor: '#7F1D1D', marginBottom: spacing.sm }]}>
-          <Ionicons name="search" size={18} color="#7F1D1D" style={styles.searchIcon} />
+      <View style={[ledgerSection, styles.listHeader]}>
+        <View style={[styles.searchWrap, { borderColor: accentDim + '80' }]}>
+          <Ionicons name="search" size={18} color={accentDim} style={styles.searchIcon} />
           <Input
             placeholder="Search merchant or notes..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            style={[styles.searchInput, { backgroundColor: 'transparent', marginBottom: 0, color: '#B91C1C' }]}
-            placeholderTextColor="#7F1D1D"
+            style={[styles.searchInput, { backgroundColor: 'transparent', marginBottom: 0, color: accent }]}
+            placeholderTextColor={accentDim + 'aa'}
           />
         </View>
-        <View style={styles.filterChipRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterChipRow}
+          style={styles.filterScroll}
+        >
           <Pressable
-            style={[ledgerBtn, filterCategoryId !== 'all' && { opacity: 0.6 }]}
+            style={({ pressed }) => [
+              styles.filterChip,
+              { borderColor: filterCategoryId === 'all' ? accent : accentDim + '60' },
+              filterCategoryId === 'all' && { backgroundColor: accent + '22' },
+              pressed && { opacity: 0.8 },
+            ]}
             onPress={() => setFilterCategoryId('all')}
           >
-            <Text style={ledgerText({ fontSize: 11 })}>ALL</Text>
+            <Text style={[filterCategoryId === 'all' ? ledgerText({ fontSize: 12 }) : ledgerDim({ fontSize: 12 })]}>All</Text>
           </Pressable>
           {categories.map((c) => (
             <Pressable
               key={c._id}
-              style={[ledgerBtn, filterCategoryId !== c._id && { opacity: 0.6 }]}
+              style={({ pressed }) => [
+                styles.filterChip,
+                { borderColor: filterCategoryId === c._id ? accent : accentDim + '60' },
+                filterCategoryId === c._id && { backgroundColor: accent + '22' },
+                pressed && { opacity: 0.8 },
+              ]}
               onPress={() => setFilterCategoryId(c._id)}
             >
-              <Text style={ledgerText({ fontSize: 11 })} numberOfLines={1}>
+              <Text style={[filterCategoryId === c._id ? ledgerText({ fontSize: 12 }) : ledgerDim({ fontSize: 12 })]} numberOfLines={1}>
                 {c.name}
               </Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
         <View style={[ledgerLine, { marginTop: spacing.md }]} />
       </View>
     ) : null;
@@ -269,12 +309,12 @@ export default function TransactionsScreen() {
               <Text style={[ledgerDim(), { fontSize: 12, marginTop: 2 }]}>Spending & income</Text>
             </View>
             <View style={styles.headerActions}>
-              <Pressable
-                style={({ pressed }) => [ledgerBtn, pressed && { opacity: 0.7 }]}
-                onPress={() => setModalVisible(true)}
-              >
-                <Text style={ledgerText({ fontSize: 12 })}>+ TXN</Text>
-              </Pressable>
+            <Pressable
+              style={({ pressed }) => [ledgerBtn, pressed && { opacity: 0.7 }]}
+              onPress={() => { setTxnDate(todayDate()); setModalVisible(true); }}
+            >
+              <Text style={ledgerText({ fontSize: 12 })}>+ TXN</Text>
+            </Pressable>
               {hasPlaidAccounts && (
                 <Pressable
                   style={({ pressed }) => [ledgerBtn, pressed && { opacity: 0.7 }]}
@@ -316,73 +356,152 @@ export default function TransactionsScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor="#7F1D1D"
+                tintColor={accentDim}
               />
             }
           />
         )}
       </View>
 
+      {/* Transaction detail modal */}
+      <Modal visible={!!detailTxn} animationType="slide" transparent>
+        {detailTxn && (
+          <View style={[styles.modalOverlay, { backgroundColor: LEDGER_BG }]}>
+            <View style={[styles.ledgerModalWrap, { paddingTop: insets.top }]}>
+              <View style={[styles.ledgerModalCard, { borderColor: accentDim + '80' }]}>
+                <View style={styles.ledgerModalHeader}>
+                  <Text style={[ledgerText(), styles.ledgerModalTitle]}>Transaction</Text>
+                  <Pressable onPress={() => setDetailTxn(null)} hitSlop={12} style={({ pressed }) => pressed && { opacity: 0.7 }}>
+                    <Ionicons name="close" size={24} color={accentDim} />
+                  </Pressable>
+                </View>
+                <View style={[styles.modalTitleLine, { backgroundColor: accent }]} />
+                <View style={[ledgerRow, styles.detailRow]}>
+                  <Text style={ledgerDim({ fontSize: 12 })}>Merchant</Text>
+                  <Text style={[ledgerText(), { fontSize: 15 }]} numberOfLines={1}>{detailTxn.merchantName}</Text>
+                </View>
+                <View style={[ledgerRow, styles.detailRow]}>
+                  <Text style={ledgerDim({ fontSize: 12 })}>Amount</Text>
+                  <Text style={[ledgerText(), { fontSize: 16, color: detailTxn.amount < 0 ? '#DC2626' : accent }]}>
+                    {formatCurrency(detailTxn.amount, { signed: true })}
+                  </Text>
+                </View>
+                <View style={[ledgerRow, styles.detailRow]}>
+                  <Text style={ledgerDim({ fontSize: 12 })}>Date</Text>
+                  <Text style={ledgerText({ fontSize: 14 })}>{formatDateLong(detailTxn.date)}</Text>
+                </View>
+                {detailTxn.account && (
+                  <View style={[ledgerRow, styles.detailRow]}>
+                    <Text style={ledgerDim({ fontSize: 12 })}>Account</Text>
+                    <Text style={ledgerText({ fontSize: 14 })}>{detailTxn.account.name}</Text>
+                  </View>
+                )}
+                {detailTxn.notes && (
+                  <View style={[ledgerRow, styles.detailRow]}>
+                    <Text style={ledgerDim({ fontSize: 12 })}>Notes</Text>
+                    <Text style={ledgerText({ fontSize: 14 })} numberOfLines={2}>{detailTxn.notes}</Text>
+                  </View>
+                )}
+                <Text style={[ledgerDim(), ledgerSectionLabel, { marginTop: spacing.lg }]}>CATEGORY</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.detailChipRow}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.detailChip,
+                      { borderColor: !detailTxn.categoryId ? accent : accentDim + '60' },
+                      !detailTxn.categoryId && { backgroundColor: accent + '22' },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                    onPress={() => handleUpdateCategory(detailTxn._id, undefined)}
+                  >
+                    <Text style={!detailTxn.categoryId ? ledgerText({ fontSize: 12 }) : ledgerDim({ fontSize: 12 })}>None</Text>
+                  </Pressable>
+                  {categories.map((c) => (
+                    <Pressable
+                      key={c._id}
+                      style={({ pressed }) => [
+                        styles.detailChip,
+                        { borderColor: detailTxn.categoryId === c._id ? accent : accentDim + '60' },
+                        detailTxn.categoryId === c._id && { backgroundColor: accent + '22' },
+                        pressed && { opacity: 0.8 },
+                      ]}
+                      onPress={() => handleUpdateCategory(detailTxn._id, c._id)}
+                    >
+                      <Text style={detailTxn.categoryId === c._id ? ledgerText({ fontSize: 12 }) : ledgerDim({ fontSize: 12 })} numberOfLines={1}>
+                        {c.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          </View>
+        )}
+      </Modal>
+
       {/* Import from bank modal */}
       <Modal visible={importPickerVisible} animationType="slide" transparent>
-        <View style={[styles.modalOverlay, { backgroundColor: colors.background }]}>
-          <View style={[styles.modalContent, { paddingTop: insets.top }]}>
-            <View style={styles.modalHeader}>
-              <Text variant="title">Import from bank</Text>
-              <Button variant="link" onPress={() => setImportPickerVisible(false)}>
-                Cancel
-              </Button>
-            </View>
-            <View style={styles.modalBody}>
+        <View style={[styles.modalOverlay, { backgroundColor: LEDGER_BG }]}>
+          <View style={[styles.ledgerModalWrap, { paddingTop: insets.top }]}>
+            <View style={[styles.ledgerModalCard, { borderColor: accentDim + '80' }]}>
+              <View style={styles.ledgerModalHeader}>
+                <Text style={[ledgerText(), styles.ledgerModalTitle]}>Import from bank</Text>
+                <Pressable onPress={() => setImportPickerVisible(false)} hitSlop={12} style={({ pressed }) => pressed && { opacity: 0.7 }}>
+                  <Text style={ledgerText({ fontSize: 14 })}>Cancel</Text>
+                </Pressable>
+              </View>
+              <View style={[styles.modalTitleLine, { backgroundColor: accent }]} />
               {linkedPlaidItems.length === 0 ? (
-                <Text variant="body" style={{ color: colors.muted }}>
+                <Text style={[ledgerDim(), { fontSize: 14 }]}>
                   No linked banks. Link an account in the Accounts tab first.
                 </Text>
               ) : (
                 <>
-                  <Text variant="caption" style={[styles.label, { color: colors.muted }]}>
-                    Choose which linked account(s) to import from
+                  <Text style={[ledgerDim(), { fontSize: 11, letterSpacing: 1, marginBottom: spacing.sm }]}>
+                    CHOOSE ACCOUNT(S) TO IMPORT FROM
                   </Text>
                   <View style={styles.chipRow}>
                     <Pressable
-                      style={[
-                        styles.chip,
-                        { backgroundColor: syncAllBanks ? colors.primary : colors.surface },
+                      style={({ pressed }) => [
+                        styles.importChip,
+                        { borderColor: syncAllBanks ? accent : accentDim + '60' },
+                        syncAllBanks && { backgroundColor: accent + '22' },
+                        pressed && { opacity: 0.8 },
                       ]}
                       onPress={() => setSelectedImportItemIds([])}
                     >
-                      <Text
-                        variant="caption"
-                        style={{ color: syncAllBanks ? colors.onPrimary : colors.text }}
-                      >
-                        All linked banks
-                      </Text>
+                      <Text style={syncAllBanks ? ledgerText({ fontSize: 12 }) : ledgerDim({ fontSize: 12 })}>All linked banks</Text>
                     </Pressable>
                     {linkedPlaidItems.map((item) => {
                       const selected = selectedImportItemIds.includes(item.itemId);
                       return (
                         <Pressable
                           key={item.itemId}
-                          style={[
-                            styles.chip,
-                            { backgroundColor: selected ? colors.primary : colors.surface },
+                          style={({ pressed }) => [
+                            styles.importChip,
+                            { borderColor: selected ? accent : accentDim + '60' },
+                            selected && { backgroundColor: accent + '22' },
+                            pressed && { opacity: 0.8 },
                           ]}
                           onPress={() => toggleImportItem(item.itemId)}
                         >
-                          <Text
-                            variant="caption"
-                            style={{ color: selected ? colors.onPrimary : colors.text }}
-                            numberOfLines={1}
-                          >
+                          <Text style={selected ? ledgerText({ fontSize: 12 }) : ledgerDim({ fontSize: 12 })} numberOfLines={1}>
                             {item.institutionName}
                           </Text>
                         </Pressable>
                       );
                     })}
                   </View>
-                  <Button onPress={runImport} disabled={syncing}>
-                    {syncing ? 'Importing…' : 'Import'}
-                  </Button>
+                  <Pressable
+                    onPress={runImport}
+                    disabled={syncing}
+                    style={({ pressed }) => [
+                      styles.ledgerPrimaryBtn,
+                      { backgroundColor: accent },
+                      (syncing || pressed) && { opacity: 0.8 },
+                    ]}
+                  >
+                    <Text style={styles.ledgerPrimaryBtnText}>{syncing ? 'Importing…' : 'Import'}</Text>
+                  </Pressable>
                 </>
               )}
             </View>
@@ -393,121 +512,137 @@ export default function TransactionsScreen() {
       {/* Add transaction modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
-          style={[styles.modalOverlay, { backgroundColor: colors.background }]}
+          style={[styles.modalOverlay, { backgroundColor: LEDGER_BG }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={0}
         >
-          <View style={[styles.modalContent, { paddingTop: insets.top, flex: 1 }]}>
-            <View style={styles.modalHeader}>
-              <Text variant="title">Add transaction</Text>
-              <Button variant="link" onPress={() => setModalVisible(false)}>
-                Cancel
-              </Button>
-            </View>
-            <ScrollView
-              style={styles.modalBody}
-              contentContainerStyle={styles.modalBodyContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Input
-                placeholder="Merchant or payee"
-                value={merchant}
-                onChangeText={setMerchant}
-              />
-              <Input
-                placeholder="Amount"
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="decimal-pad"
-              />
-              <Pressable
-                style={[styles.toggleRow, { backgroundColor: colors.surface }]}
-                onPress={() => setIsExpense(!isExpense)}
-              >
-                <Text variant="body" style={{ color: colors.text }}>
-                  {isExpense ? 'Expense (money out)' : 'Income (money in)'}
-                </Text>
-                <Ionicons
-                  name={isExpense ? 'arrow-up-circle' : 'arrow-down-circle'}
-                  size={22}
-                  color={colors.primary}
-                />
-              </Pressable>
-              <Text variant="caption" style={[styles.label, { color: colors.muted }]}>
-                Account
-              </Text>
-              <View style={styles.chipRow}>
-                {accounts.map((a) => (
-                  <Pressable
-                    key={a._id}
-                    style={[
-                      styles.chip,
-                      { backgroundColor: accountId === a._id ? colors.primary : colors.surface },
-                    ]}
-                    onPress={() => setAccountId(a._id)}
-                  >
-                    <Text
-                      variant="caption"
-                      style={{ color: accountId === a._id ? colors.onPrimary : colors.text }}
-                      numberOfLines={1}
-                    >
-                      {a.name}
-                    </Text>
-                  </Pressable>
-                ))}
+          <View style={[styles.ledgerModalWrap, { paddingTop: insets.top, flex: 1 }]}>
+            <View style={[styles.ledgerModalCard, styles.addModalCard, { borderColor: accentDim + '80' }]}>
+              <View style={styles.ledgerModalHeader}>
+                <Text style={[ledgerText(), styles.ledgerModalTitle]}>Add transaction</Text>
+                <Pressable onPress={() => setModalVisible(false)} hitSlop={12} style={({ pressed }) => pressed && { opacity: 0.7 }}>
+                  <Text style={ledgerText({ fontSize: 14 })}>Cancel</Text>
+                </Pressable>
               </View>
-              {categories.length > 0 && (
-                <>
-                  <Text variant="caption" style={[styles.label, { color: colors.muted }]}>
-                    Category (optional)
+              <View style={[styles.modalTitleLine, { backgroundColor: accent }]} />
+              <ScrollView
+                style={styles.addModalScroll}
+                contentContainerStyle={styles.addModalScrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <Input
+                  placeholder="Merchant or payee"
+                  value={merchant}
+                  onChangeText={setMerchant}
+                  style={[styles.ledgerInput, { borderColor: accentDim + '80' }]}
+                  placeholderTextColor={accentDim + 'aa'}
+                />
+                <Input
+                  placeholder="Amount"
+                  value={amount}
+                  onChangeText={setAmount}
+                  keyboardType="decimal-pad"
+                  style={[styles.ledgerInput, { borderColor: accentDim + '80' }]}
+                  placeholderTextColor={accentDim + 'aa'}
+                />
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.toggleRow,
+                    { borderColor: accentDim + '60' },
+                    pressed && { opacity: 0.8 },
+                  ]}
+                  onPress={() => setIsExpense(!isExpense)}
+                >
+                  <Text style={ledgerText({ fontSize: 14 })}>
+                    {isExpense ? 'Expense (money out)' : 'Income (money in)'}
                   </Text>
-                  <View style={styles.chipRow}>
+                  <Ionicons name={isExpense ? 'arrow-up-circle' : 'arrow-down-circle'} size={22} color={accent} />
+                </Pressable>
+                <Text style={[ledgerDim(), { fontSize: 11, letterSpacing: 1, marginBottom: spacing.xs }]}>DATE</Text>
+                <Input
+                  placeholder="YYYY-MM-DD"
+                  value={txnDate}
+                  onChangeText={setTxnDate}
+                  style={[styles.ledgerInput, { borderColor: accentDim + '80' }]}
+                  placeholderTextColor={accentDim + 'aa'}
+                />
+                <Text style={[ledgerDim(), { fontSize: 11, letterSpacing: 1, marginBottom: spacing.xs, marginTop: spacing.lg }]}>ACCOUNT</Text>
+                <View style={styles.chipRow}>
+                  {accounts.map((a) => (
                     <Pressable
-                      style={[
-                        styles.chip,
-                        { backgroundColor: !categoryId ? colors.primary : colors.surface },
+                      key={a._id}
+                      style={({ pressed }) => [
+                        styles.importChip,
+                        { borderColor: accountId === a._id ? accent : accentDim + '60' },
+                        accountId === a._id && { backgroundColor: accent + '22' },
+                        pressed && { opacity: 0.8 },
                       ]}
-                      onPress={() => setCategoryId('')}
+                      onPress={() => setAccountId(a._id)}
                     >
-                      <Text
-                        variant="caption"
-                        style={{ color: !categoryId ? colors.onPrimary : colors.text }}
-                      >
-                        None
+                      <Text style={accountId === a._id ? ledgerText({ fontSize: 12 }) : ledgerDim({ fontSize: 12 })} numberOfLines={1}>
+                        {a.name}
                       </Text>
                     </Pressable>
-                    {categories.map((c) => (
+                  ))}
+                </View>
+                {categories.length > 0 && (
+                  <>
+                    <Text style={[ledgerDim(), { fontSize: 11, letterSpacing: 1, marginBottom: spacing.xs, marginTop: spacing.lg }]}>
+                      CATEGORY (OPTIONAL)
+                    </Text>
+                    <View style={styles.chipRow}>
                       <Pressable
-                        key={c._id}
-                        style={[
-                          styles.chip,
-                          {
-                            backgroundColor: categoryId === c._id ? colors.primary : colors.surface,
-                          },
+                        style={({ pressed }) => [
+                          styles.importChip,
+                          { borderColor: !categoryId ? accent : accentDim + '60' },
+                          !categoryId && { backgroundColor: accent + '22' },
+                          pressed && { opacity: 0.8 },
                         ]}
-                        onPress={() => setCategoryId(c._id)}
+                        onPress={() => setCategoryId('')}
                       >
-                        <Text
-                          variant="caption"
-                          style={{ color: categoryId === c._id ? colors.onPrimary : colors.text }}
-                          numberOfLines={1}
-                        >
-                          {c.name}
-                        </Text>
+                        <Text style={!categoryId ? ledgerText({ fontSize: 12 }) : ledgerDim({ fontSize: 12 })}>None</Text>
                       </Pressable>
-                    ))}
-                  </View>
-                </>
-              )}
-              <Input placeholder="Notes" value={notes} onChangeText={setNotes} />
-              <Button
-                onPress={handleSubmit}
-                disabled={!accountId || !merchant.trim()}
-              >
-                Save transaction
-              </Button>
-            </ScrollView>
+                      {categories.map((c) => (
+                        <Pressable
+                          key={c._id}
+                          style={({ pressed }) => [
+                            styles.importChip,
+                            { borderColor: categoryId === c._id ? accent : accentDim + '60' },
+                            categoryId === c._id && { backgroundColor: accent + '22' },
+                            pressed && { opacity: 0.8 },
+                          ]}
+                          onPress={() => setCategoryId(c._id)}
+                        >
+                          <Text style={categoryId === c._id ? ledgerText({ fontSize: 12 }) : ledgerDim({ fontSize: 12 })} numberOfLines={1}>
+                            {c.name}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </>
+                )}
+                <Input
+                  placeholder="Notes (optional)"
+                  value={notes}
+                  onChangeText={setNotes}
+                  style={[styles.ledgerInput, { borderColor: accentDim + '80' }]}
+                  placeholderTextColor={accentDim + 'aa'}
+                />
+                <Pressable
+                  onPress={handleSubmit}
+                  disabled={!accountId || !merchant.trim()}
+                  style={({ pressed }) => [
+                    styles.ledgerPrimaryBtn,
+                    { backgroundColor: accent },
+                    (!accountId || !merchant.trim()) && { opacity: 0.5 },
+                    pressed && accountId && merchant.trim() && { opacity: 0.9 },
+                  ]}
+                >
+                  <Text style={styles.ledgerPrimaryBtnText}>Save transaction</Text>
+                </Pressable>
+              </ScrollView>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -522,39 +657,90 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  txnRow: { paddingVertical: spacing.lg },
+  txnRowPressed: { opacity: 0.85 },
+  txnRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  listHeader: { paddingTop: spacing.lg },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 0,
+    borderWidth: 1,
+    borderRadius: radii.md,
     paddingLeft: spacing.md,
+    marginBottom: spacing.sm,
   },
   searchIcon: { marginRight: spacing.sm },
   searchInput: { flex: 1 },
-  filterChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  filterScroll: { marginHorizontal: -spacing.lg },
+  filterChipRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  filterChip: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+  },
   emptyContainer: { flex: 1, paddingHorizontal: spacing.lg, justifyContent: 'center' },
-  modalOverlay: { flex: 1 },
-  modalContent: { flex: 1, paddingHorizontal: spacing.lg },
-  modalHeader: {
+  emptyState: { paddingTop: spacing.xxl * 2 },
+  emptyActions: { gap: spacing.md, alignItems: 'center' },
+  emptyBtn: { minWidth: 200 },
+  modalOverlay: { flex: 1, justifyContent: 'center', padding: spacing.lg },
+  ledgerModalWrap: { flex: 1, maxWidth: 440, width: '100%', alignSelf: 'center' },
+  ledgerModalCard: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.xl,
+    overflow: 'hidden',
+  },
+  addModalCard: { flex: 1, minHeight: 0 },
+  ledgerModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xl,
   },
-  modalBody: { flex: 1 },
-  modalBodyContent: { paddingBottom: spacing.xxl },
+  ledgerModalTitle: { fontSize: 18, letterSpacing: 0.5 },
+  modalTitleLine: { height: 1, opacity: 0.5, marginBottom: spacing.lg },
+  detailRow: { paddingVertical: spacing.sm },
+  detailChipRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, paddingBottom: spacing.sm },
+  detailChip: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
+  importChip: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+  },
+  ledgerPrimaryBtn: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: radii.md,
+    width: '100%',
+  },
+  ledgerPrimaryBtnText: { fontFamily: LEDGER_FONT, fontSize: 16, fontWeight: '500', color: '#fff' },
+  ledgerInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    marginBottom: spacing.md,
+  },
+  addModalScroll: { flex: 1 },
+  addModalScrollContent: { paddingBottom: spacing.xxl },
   toggleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: spacing.lg,
-    borderRadius: radii.md,
+    borderWidth: 1,
     marginBottom: spacing.lg,
-  },
-  label: { marginBottom: spacing.sm },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
-  chip: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.sm,
   },
 });

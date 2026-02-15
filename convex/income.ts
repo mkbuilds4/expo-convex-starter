@@ -8,7 +8,7 @@ async function requireUserId(ctx: QueryCtx | MutationCtx): Promise<string> {
   return identity.subject;
 }
 
-/** Convert amount (cents) + frequency to monthly cents */
+/** Convert amount (cents) + frequency to monthly cents. One-time sources contribute 0 to monthly total. */
 function toMonthlyCents(amount: number, frequency: string): number {
   switch (frequency) {
     case 'weekly':
@@ -19,12 +19,14 @@ function toMonthlyCents(amount: number, frequency: string): number {
       return amount;
     case 'annual':
       return Math.round(amount / 12);
+    case 'one-time':
+      return 0;
     default:
       return amount;
   }
 }
 
-const FREQUENCIES = ['weekly', 'biweekly', 'monthly', 'annual'] as const;
+const FREQUENCIES = ['weekly', 'biweekly', 'monthly', 'annual', 'one-time'] as const;
 
 // ——— Income sources ———
 
@@ -104,6 +106,93 @@ export const removeSource = mutation({
     const userId = await requireUserId(ctx);
     const source = await ctx.db.get(id);
     if (!source || source.userId !== userId) throw new Error('Source not found');
+    await ctx.db.delete(id);
+  },
+});
+
+// ——— Income entries (actual amounts received) ———
+
+export const listEntriesByMonth = query({
+  args: { month: v.string() }, // YYYY-MM
+  handler: async (ctx, { month }) => {
+    const userId = await requireUserId(ctx);
+    const [y, m] = month.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    const monthStart = `${month}-01`;
+    const monthEnd = `${month}-${String(lastDay).padStart(2, '0')}`;
+    const entries = await ctx.db
+      .query('incomeEntries')
+      .withIndex('by_user_date', (q) =>
+        q.eq('userId', userId).gte('date', monthStart).lte('date', monthEnd)
+      )
+      .order('desc')
+      .collect();
+    const result = [];
+    for (const e of entries) {
+      let sourceName = e.sourceName ?? 'Other';
+      if (e.sourceId) {
+        const src = await ctx.db.get(e.sourceId);
+        if (src) sourceName = src.name;
+      }
+      result.push({
+        _id: e._id,
+        sourceId: e.sourceId,
+        sourceName,
+        amount: e.amount,
+        date: e.date,
+        note: e.note,
+      });
+    }
+    return result;
+  },
+});
+
+export const getTotalReceivedInMonth = query({
+  args: { month: v.string() },
+  handler: async (ctx, { month }) => {
+    const userId = await requireUserId(ctx);
+    const [y, m] = month.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    const monthStart = `${month}-01`;
+    const monthEnd = `${month}-${String(lastDay).padStart(2, '0')}`;
+    const entries = await ctx.db
+      .query('incomeEntries')
+      .withIndex('by_user_date', (q) =>
+        q.eq('userId', userId).gte('date', monthStart).lte('date', monthEnd)
+      )
+      .collect();
+    return entries.reduce((sum, e) => sum + e.amount, 0);
+  },
+});
+
+export const addEntry = mutation({
+  args: {
+    sourceId: v.optional(v.id('incomeSources')),
+    sourceName: v.optional(v.string()),
+    amount: v.number(),
+    date: v.string(), // YYYY-MM-DD
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, { sourceId, sourceName, amount, date, note }) => {
+    const userId = await requireUserId(ctx);
+    if (amount <= 0) throw new Error('Amount must be positive');
+    return ctx.db.insert('incomeEntries', {
+      userId,
+      sourceId: sourceId ?? undefined,
+      sourceName: sourceName?.trim() || undefined,
+      amount,
+      date,
+      note: note?.trim() || undefined,
+    });
+  },
+});
+
+export const removeEntry = mutation({
+  args: { id: v.id('incomeEntries') },
+  handler: async (ctx, { id }) => {
+    const userId = await requireUserId(ctx);
+    const entry = await ctx.db.get(id);
+    if (!entry || entry.userId !== userId) throw new Error('Entry not found');
     await ctx.db.delete(id);
   },
 });

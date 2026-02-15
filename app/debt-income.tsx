@@ -15,13 +15,16 @@ import {
   ledgerRow,
   ledgerBtn,
 } from '../lib/ledger-theme';
-import { formatCurrency } from '../lib/format';
+import { formatCurrency, getCurrentMonth, getDaysLeftInMonth } from '../lib/format';
 import { Text, BackHeader } from '../components';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function DebtIncomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const month = getCurrentMonth();
   const billsTotalCents = useQuery(api.bills.getTotalMonthlyCents) ?? 0;
+  const receivedThisMonth = useQuery(api.income.getTotalReceivedInMonth, { month }) ?? 0;
   const incomeFromSources = useQuery(api.income.getTotalMonthlyFromSources) ?? 0;
   const incomeSummary = useQuery(api.income.getIncomeSummary);
   const data = useQuery(api.debt.getDebtPayoffProjection);
@@ -31,9 +34,14 @@ export default function DebtIncomeScreen() {
 
   const projectedMonthlyCents = incomeSummary?.projectedMonthlyWithRecurringForecasts ?? incomeFromSources;
   const hasForecastJobs = (incomeSummary?.totalMonthlyFromRecurringForecasts ?? 0) > 0;
-  const surplusCents = projectedMonthlyCents - incomeTargetCents;
+  const incomeToCompare = receivedThisMonth > 0 ? receivedThisMonth : projectedMonthlyCents;
+  const surplusCents = incomeToCompare - incomeTargetCents;
   const isSurplus = surplusCents >= 0;
   const isShortfall = surplusCents < 0;
+  const daysLeftInMonth = getDaysLeftInMonth();
+  const needMoreCents = isShortfall ? -surplusCents : 0;
+  const perDayCents = needMoreCents > 0 && daysLeftInMonth > 0 ? Math.ceil(needMoreCents / daysLeftInMonth) : 0;
+  const showPerDay = isShortfall && needMoreCents > 0 && daysLeftInMonth > 0;
 
   return (
     <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
@@ -87,8 +95,14 @@ export default function DebtIncomeScreen() {
             </Pressable>
           </View>
           <View style={ledgerLine} />
+          {receivedThisMonth > 0 && (
+            <Pressable style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.8 }]} onPress={() => router.push('/income')}>
+              <Text style={ledgerDim({ fontSize: 12 })}>Received this month</Text>
+              <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(receivedThisMonth)}</Text>
+            </Pressable>
+          )}
           <Pressable style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.8 }]} onPress={() => router.push('/income')}>
-            <Text style={ledgerDim({ fontSize: 12 })}>From tracked sources</Text>
+            <Text style={ledgerDim({ fontSize: 12 })}>Expected from sources</Text>
             <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(incomeFromSources)}/mo</Text>
           </Pressable>
           {hasForecastJobs && (
@@ -114,8 +128,8 @@ export default function DebtIncomeScreen() {
           </View>
           <View style={ledgerLine} />
           <View style={ledgerRow}>
-            <Text style={ledgerDim({ fontSize: 12 })}>Projected this month</Text>
-            <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(projectedMonthlyCents)}</Text>
+            <Text style={ledgerDim({ fontSize: 12 })}>{receivedThisMonth > 0 ? 'Received this month' : 'Projected this month'}</Text>
+            <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(receivedThisMonth > 0 ? receivedThisMonth : projectedMonthlyCents)}</Text>
           </View>
           <View style={ledgerRow}>
             <Text style={ledgerDim({ fontSize: 12 })}>Need this month</Text>
@@ -135,11 +149,20 @@ export default function DebtIncomeScreen() {
           </View>
           <Text style={[ledgerDim(), { fontSize: 11, marginTop: spacing.xs }]}>
             {isShortfall
-              ? `You're ${formatCurrency(-surplusCents)} short of what you need. Add income or reduce bills/debt target.`
+              ? `You're ${formatCurrency(-surplusCents)} short of what you need.${showPerDay ? ` To close the gap by month-end, that's about ${formatCurrency(perDayCents)} per day for the next ${daysLeftInMonth} days.` : ''} Add income or reduce bills/debt target.`
               : isSurplus && surplusCents > 0
                 ? 'Projected income covers your need with room to spare.'
                 : 'Projected income matches your need.'}
           </Text>
+          {isShortfall && (
+            <Pressable
+              style={({ pressed }) => [ledgerRow, { marginTop: spacing.md, paddingVertical: spacing.md }, pressed && { opacity: 0.8 }]}
+              onPress={() => router.push('/income?add=1')}
+            >
+              <Text style={ledgerDim({ fontSize: 12 })}>Add income source</Text>
+              <Ionicons name="add-circle-outline" size={20} color={ledgerText().color} />
+            </Pressable>
+          )}
           <View style={ledgerLine} />
         </View>
 

@@ -360,6 +360,8 @@ recurring_transactions
 
 ## Getting Started Checklist
 
+*(For greenfield setup; current app uses Expo + Convex.)*
+
 - [ ] Set up React Native project with TypeScript (`npx react-native init MKMoney --template react-native-template-typescript`)
 - [ ] Install and configure `react-native-plaid-link-sdk`
 - [ ] Set up backend with Express + Prisma + PostgreSQL
@@ -370,6 +372,104 @@ recurring_transactions
 - [ ] Build budget screen with category assignments
 - [ ] Dashboard with "Ready to Assign" calculation
 - [ ] Iterate from there
+
+---
+
+## Implementation Checklist (vs current app)
+
+Tick as you ship. Order reflects suggested priority within each phase.
+
+### Phase 1 — Core foundation
+
+- [ ] **Carry-over / rollover** — Unspent per category rolls to next month (backend: compute prior month “available” and add to this month’s assigned or show as starting balance; UI: optional indicator “Includes $X from last month”).
+- [ ] **Move money between envelopes** — Dedicated “Move” flow: pick source category, target category, amount; backend: `transferBetweenCategories(fromCategoryId, toCategoryId, month, amountCents)` (decrement one assignment, increment other); UI: button on budget or room card “Move to another room”.
+- [ ] **Weekly budget view** — Optional view: show category assigned vs spent for current week (or “week so far”); backend: filter transactions by week; UI: toggle or tab “Month | Week”.
+- [ ] **Split transactions** — One transaction → multiple categories. Backend: either `transaction_splits` table (transactionId, categoryId, amountCents) or store first split on transaction + child records; UI: “Split” on transaction detail, assign portions to categories.
+- [ ] **Approve / edit imported transactions** — New imports start as `isApproved: false`; list “Pending” on transactions screen; user can approve or edit category/amount then approve; backend: mutation `approveTransaction(id)` and optional `updateTransaction(id, ...)`.
+- [ ] **Recurring transaction detection** — Use Plaid Recurring Transactions and/or detect by merchant + amount in app; store in `recurring_transactions` (or similar); flag transactions in list as “Recurring” and show in bill/subscription view.
+- [ ] **Scheduled Plaid refresh** — Convex cron (or external cron calling Convex) to run balance + transaction sync daily (e.g. `convex/crons.ts` or Convex dashboard cron); call existing `refreshPlaidBalancesAndLiabilities` and transaction sync per item.
+- [ ] **Plaid webhooks** — HTTP endpoint for Plaid: TRANSACTIONS_SYNC (trigger transaction sync for item), ITEM (update status / set needs_reauth), optionally HOLDINGS; persist cursor/state per item as needed.
+
+### Phase 2 — Financial intelligence
+
+- [ ] **Plaid Investments** — Add Investments product; fetch holdings, map to accounts or new `holdings` table; include in net worth and dashboard.
+- [ ] **Manual asset entries** — Table e.g. `manual_assets` (name, type, value, date); include in net worth summary and history.
+- [ ] **Income categorization** — Add W-2 / 1099 / passive (and tax-related) fields to income sources/entries; optional Plaid Income for verification.
+- [ ] **Tax awareness module** — Estimated tax bracket from YTD income; category-level tax tagging (deductible / not); quarterly reminder for estimated tax; annual summary export (CSV/PDF).
+- [ ] **Subscription & bill manager (Plaid Recurring)** — Ingest Plaid Recurring into bill calendar; due dates, annual cost view, alerts for trials/price changes.
+
+### Phase 3 — Goals & projections
+
+- [ ] **Savings goals UI** — Screen: create goal (name, target amount, target date), link to category optional; show progress bar and “fund from envelope”; backend: use existing `goals` table; mutations for create/update/delete and “add to goal” from category.
+- [ ] **Financial goal projections** — “What if” (e.g. save $X more/month → goal date); retirement or home-buying calculator (optional).
+- [ ] **Age your money** — Metric: days between income and spending (YNAB-style); store or compute from income/transaction dates; trend chart and milestones (30/60 days).
+- [ ] **Reports & insights** — Spending by category (pie/bar), income vs expenses over time, net worth growth; custom date range; export CSV/PDF.
+
+### Phase 4 — Polish & scale
+
+- [ ] **Multi-user / shared budgets** — Shared budget entity, roles, activity feed (who assigned/spent what).
+- [ ] **Notifications & alerts** — Push: large transaction, low balance, overspent category, bill due, goal milestone; configurable thresholds.
+- [ ] **Biometric app lock** — Face ID / fingerprint to unlock app (e.g. expo-local-authentication).
+- [ ] **Widgets & quick actions** — Home screen widget (balance, ready-to-assign); Siri/shortcuts for quick-add transaction.
+
+### Design & copy
+
+- [ ] **“House” / “Your financial house”** — Consider “House” tab or subtitle; use “assign to a room” / “this room is over budget” in copy where it fits.
+- [ ] **Debt as clutter / locked doors** — Use “boxes,” “locked wing,” “unlock,” “clear space” in debt and net worth views.
+- [ ] **Apple Card (FinanceKit)** — If desired: native FinanceKit integration for Apple Card (separate from Plaid).
+
+---
+
+## Concrete tasks — Phase 1 (backend + UI)
+
+Use these as a first batch; implement in this order for maximum impact.
+
+### 1. Carry-over (rollover)
+
+- **Backend (Convex):**
+  - In `getDashboard` (or a helper), for each category compute “previous month available” = `assigned(prevMonth) - spent(prevMonth)` (clamp ≥ 0).
+  - Either: (A) add that to “assigned” for current month in the API (so “assigned” = rollover + user assignments), or (B) return `rolloverCents` per category and add it in the UI to “available.”
+  - Document: “Available = assigned + rollover − spent” and “Ready to Assign” stays based on on-budget accounts − total assigned (assignments only, not rollover), or include rollover in a single definition and keep it consistent.
+- **UI:**
+  - On budget screen / RoomCard, show “Includes $X from last month” when rollover > 0.
+  - Optional: in dashboard, one line “Rolled over from last month: $X” (sum of rollovers).
+
+### 2. Move money between envelopes
+
+- **Backend (Convex):**
+  - New mutation `transferBetweenCategories({ fromCategoryId, toCategoryId, month, amountCents })`: resolve both assignments for `month`, subtract `amountCents` from fromCategory (clamp to 0), add to toCategory (create assignment if missing). Require same userId for both categories.
+- **UI:**
+  - On budget screen: “Move” or “Move money” button (global or per room).
+  - Modal: “From” category dropdown, “To” category dropdown, amount input; submit calls `transferBetweenCategories`. Show success toast and refresh dashboard.
+
+### 3. Split transactions
+
+- **Backend (Convex):**
+  - Add table e.g. `transactionSplits`: `transactionId`, `categoryId`, `amountCents` (all required). For split txns, `transactions.isSplit === true` and sum(splits) === transaction amount.
+  - Mutations: `createSplit(transactionId, splits[])` (replace any existing splits), `deleteSplits(transactionId)`.
+  - In `getDashboard` (and any “spent per category” query), for split txns use `transactionSplits` to attribute amounts to categories instead of `transaction.categoryId`.
+- **UI:**
+  - Transaction detail: “Split” button; modal to add 2+ lines (category + amount), total must match transaction amount; save calls `createSplit`. List view: show “Split” badge and optionally category names.
+
+### 4. Approve / edit imported transactions
+
+- **Backend (Convex):**
+  - When writing Plaid transactions, set `isApproved: false` (or a dedicated `pendingImport: true` if you prefer). Add mutation `approveTransaction(id)` (set isApproved true) and ensure `updateTransaction` (or new) can edit category, amount, merchant, date for pending.
+  - Query: `listPendingTransactions()` for current user (optional limit).
+- **UI:**
+  - Transactions: section “Pending” at top (or filter “Pending”) with approve + edit; after edit/approve, remove from pending.
+
+### 5. Scheduled Plaid refresh
+
+- **Backend (Convex):**
+  - Add Convex cron (e.g. in `convex.json` or dashboard): daily at 4am run a function that calls `internal.plaid.refreshAllItemsForAllUsers` (or new internal action that loops users/items and runs existing refresh + transaction sync). Implement that internal action if it doesn’t exist: get all items with access tokens, call refresh + sync for each.
+- **Docs:** Note in README or convex comments that production uses cron for automatic refresh.
+
+### 6. Plaid webhooks
+
+- **Backend (Convex):**
+  - Add HTTP route (Convex HTTP action) for Plaid webhook: verify signature, parse payload (TRANSACTIONS_SYNC, ITEM, etc.); for TRANSACTIONS_SYNC trigger sync for that item (reuse existing sync logic); for ITEM update item status / set needs_reauth. Register webhook URL in Plaid dashboard.
+- **Docs:** Document webhook URL and required env (e.g. PLAID_WEBHOOK_SECRET).
 
 ---
 

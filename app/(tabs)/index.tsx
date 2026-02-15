@@ -11,7 +11,8 @@ import {
   ledgerEmpty,
 } from '../../lib/ledger-theme';
 import { useLedgerStyles } from '../../lib/financial-state-context';
-import { formatCurrency, getCurrentMonth, getTimeGreeting, formatMonth } from '../../lib/format';
+import { formatCurrency, formatCurrencyOrHide, getCurrentMonth, getTimeGreeting, formatMonth, getDaysLeftInMonth } from '../../lib/format';
+import { useHideAmounts } from '../../lib/hide-amounts-context';
 import { Text } from '../../components';
 import { authClient } from '../../lib/auth-client';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,20 +20,26 @@ import { Ionicons } from '@expo/vector-icons';
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { hideAmounts, setHideAmounts } = useHideAmounts();
   const { ledgerText, ledgerDim, ledgerLine, accent, accentDim } = useLedgerStyles();
   const month = getCurrentMonth();
   const dashboard = useQuery(api.budget.getDashboard, { month });
   const netWorth = useQuery(api.networth.getSummary);
   const debtProjection = useQuery(api.debt.getDebtPayoffProjection);
   const billsTotalCents = useQuery(api.bills.getTotalMonthlyCents) ?? 0;
-  const incomeFromSources = useQuery(api.income.getTotalMonthlyFromSources) ?? 0;
+  const receivedThisMonth = useQuery(api.income.getTotalReceivedInMonth, { month }) ?? 0;
+  const expectedFromSources = useQuery(api.income.getTotalMonthlyFromSources) ?? 0;
+  const incomeForTarget = receivedThisMonth > 0 ? receivedThisMonth : expectedFromSources;
   const { data: session } = authClient.useSession();
 
   const hasDebt = debtProjection && debtProjection.totalDebtNow > 0;
   const debtMonthly = hasDebt ? (debtProjection?.requiredMonthlyTotalCents ?? 0) : 0;
   const incomeTargetCents = billsTotalCents + debtMonthly;
   const showIncomeTarget = incomeTargetCents > 0;
-  const needMoreCents = showIncomeTarget && incomeFromSources < incomeTargetCents ? incomeTargetCents - incomeFromSources : 0;
+  const needMoreCents = showIncomeTarget && incomeForTarget < incomeTargetCents ? incomeTargetCents - incomeForTarget : 0;
+  const daysLeftInMonth = getDaysLeftInMonth();
+  const perDayCents = needMoreCents > 0 && daysLeftInMonth > 0 ? Math.ceil(needMoreCents / daysLeftInMonth) : 0;
+  const showPerDay = needMoreCents > 0 && daysLeftInMonth > 0;
 
   const firstName = session?.user?.name?.trim().split(/\s+/)[0] || 'there';
   const greeting = getTimeGreeting();
@@ -47,11 +54,26 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[ledgerHeader, { paddingBottom: spacing.lg }]}>
-          <View>
-            <Text style={[ledgerText(), { fontSize: 18, letterSpacing: 1 }]}>HOME</Text>
-            <Text style={[ledgerDim(), { fontSize: 14, marginTop: 4 }]}>
-              {greeting}, {firstName} · {formatMonth(month)}
-            </Text>
+          <View style={styles.headerTopRow}>
+            <View>
+              <Text style={[ledgerText(), { fontSize: 18, letterSpacing: 1 }]}>HOME</Text>
+              <Text style={[ledgerDim(), { fontSize: 14, marginTop: 4 }]}>
+                {greeting}, {firstName} · {formatMonth(month)}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setHideAmounts(!hideAmounts)}
+              style={({ pressed }) => [styles.hideAmountsBtn, pressed && { opacity: 0.7 }]}
+              hitSlop={12}
+              accessibilityLabel={hideAmounts ? 'Show amounts' : 'Hide amounts'}
+              accessibilityRole="button"
+            >
+              <Ionicons
+                name={hideAmounts ? 'eye-off-outline' : 'eye-outline'}
+                size={24}
+                color={accentDim}
+              />
+            </Pressable>
           </View>
           <View style={styles.headerActions}>
             <Pressable
@@ -91,11 +113,21 @@ export default function DashboardScreen() {
                 {needMoreCents > 0 && (
                   <Text style={[ledgerDim(), { fontSize: 12, marginTop: spacing.xs }]}>
                     Need {formatCurrency(needMoreCents)} more (vs tracked income)
+                    {showPerDay && ` · About ${formatCurrency(perDayCents)}/day for the next ${daysLeftInMonth} days`}
                   </Text>
                 )}
               </View>
               <Ionicons name="chevron-forward" size={20} color={accentDim} />
             </Pressable>
+            {needMoreCents > 0 && (
+              <Pressable
+                style={({ pressed }) => [styles.contentRow, styles.addIncomeRow, pressed && { opacity: 0.7 }]}
+                onPress={() => router.push('/income?add=1')}
+              >
+                <Text style={[ledgerDim(), styles.rowLabel]}>Add income source</Text>
+                <Ionicons name="add-circle-outline" size={20} color={accent} />
+              </Pressable>
+            )}
             <View style={ledgerLine} />
           </View>
         )}
@@ -126,7 +158,7 @@ export default function DashboardScreen() {
                     {acc.name}
                   </Text>
                   <Text style={[ledgerText(), styles.rowValue]}>
-                    {formatCurrency(acc.availableBalance ?? acc.currentBalance)}
+                    {formatCurrencyOrHide(acc.availableBalance ?? acc.currentBalance, hideAmounts)}
                   </Text>
                 </Pressable>
               ))}
@@ -161,7 +193,7 @@ export default function DashboardScreen() {
                   netWorth.netWorth < 0 && { color: '#DC2626' },
                 ]}
               >
-                {formatCurrency(netWorth.netWorth)}
+                {formatCurrencyOrHide(netWorth.netWorth, hideAmounts)}
               </Text>
             </Pressable>
             <View style={ledgerLine} />
@@ -178,6 +210,14 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: spacing.xxl },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  hideAmountsBtn: {
+    padding: spacing.xs,
+  },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -220,6 +260,10 @@ const styles = StyleSheet.create({
   },
   debtPlanRow: {
     paddingVertical: spacing.xl,
+  },
+  addIncomeRow: {
+    paddingVertical: spacing.md,
+    paddingTop: 0,
   },
   debtPlanLeft: {
     flex: 1,

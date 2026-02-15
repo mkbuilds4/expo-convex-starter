@@ -1,11 +1,11 @@
-import { Platform } from 'react-native';
-import { spacing } from './theme';
+import { spacing, appFontFamily } from './theme';
 
 /** Ledger-style design tokens (black background, red monospace) used across the app. */
 export const LEDGER_BG = '#000000';
 export const LEDGER_RED = '#B91C1C';
 export const LEDGER_RED_DIM = '#7F1D1D';
-export const LEDGER_FONT = Platform.select({ ios: 'Menlo', android: 'monospace' });
+/** Same as theme appFontFamily – use for ledger text helpers. */
+export const LEDGER_FONT = appFontFamily;
 
 export function ledgerText(style: Record<string, unknown> = {}) {
   return { fontFamily: LEDGER_FONT, color: LEDGER_RED, ...style };

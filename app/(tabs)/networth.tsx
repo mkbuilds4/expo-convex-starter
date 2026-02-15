@@ -19,13 +19,15 @@ import {
   ledgerRow,
   ledgerEmpty,
 } from '../../lib/ledger-theme';
-import { formatCurrency } from '../../lib/format';
+import { formatCurrency, formatCurrencyOrHide } from '../../lib/format';
+import { useHideAmounts } from '../../lib/hide-amounts-context';
 import { Text, Button } from '../../components';
 import Toast from 'react-native-toast-message';
 
 export default function NetWorthScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { hideAmounts } = useHideAmounts();
   const { colors } = useTheme();
   const summary = useQuery(api.networth.getSummary);
   const snapshots = useQuery(api.networth.getSnapshotHistory, { limit: 14 });
@@ -84,17 +86,17 @@ export default function NetWorthScreen() {
                 { fontSize: 16, color: netWorth >= 0 ? '#B91C1C' : '#DC2626' },
               ]}
             >
-              {formatCurrency(netWorth)}
+              {formatCurrencyOrHide(netWorth, hideAmounts)}
             </Text>
           </View>
           <View style={ledgerLine} />
           <View style={[ledgerRow, { paddingVertical: spacing.xs }]}>
             <Text style={ledgerDim({ fontSize: 12 })}>Assets</Text>
-            <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(totalAssets)}</Text>
+            <Text style={ledgerText({ fontSize: 14 })}>{formatCurrencyOrHide(totalAssets, hideAmounts)}</Text>
           </View>
           <View style={[ledgerRow, { paddingVertical: spacing.xs }]}>
             <Text style={ledgerDim({ fontSize: 12 })}>Liabilities</Text>
-            <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(totalLiabilities)}</Text>
+            <Text style={ledgerText({ fontSize: 14 })}>{formatCurrencyOrHide(totalLiabilities, hideAmounts)}</Text>
           </View>
           <View style={ledgerLine} />
         </View>
@@ -123,7 +125,7 @@ export default function NetWorthScreen() {
                     {acc.name}
                   </Text>
                   <Text style={ledgerText({ fontSize: 14 })}>
-                    {formatCurrency(acc.currentBalance)}
+                    {formatCurrencyOrHide(acc.currentBalance, hideAmounts)}
                   </Text>
                 </Pressable>
               ))}
@@ -166,7 +168,7 @@ export default function NetWorthScreen() {
                     {acc.name}
                   </Text>
                   <Text style={ledgerText({ fontSize: 14 })}>
-                    {formatCurrency(acc.currentBalance)}
+                    {formatCurrencyOrHide(acc.currentBalance, hideAmounts)}
                   </Text>
                 </Pressable>
               ))}
@@ -188,7 +190,7 @@ export default function NetWorthScreen() {
                     s.netWorth < 0 && { color: '#DC2626' },
                   ]}
                 >
-                  {formatCurrency(s.netWorth)}
+                  {formatCurrencyOrHide(s.netWorth, hideAmounts)}
                 </Text>
               </View>
             ))}

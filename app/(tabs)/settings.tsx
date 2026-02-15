@@ -14,6 +14,7 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authClient } from '../../lib/auth-client';
 import { useTheme } from '../../lib/theme-context';
+import { useHideAmounts } from '../../lib/hide-amounts-context';
 import { spacing, radii } from '../../lib/theme';
 import { useRouter } from 'expo-router';
 import {
@@ -37,6 +38,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { colors, preference } = useTheme();
   const colorScheme = useColorScheme();
+  const { hideAmounts, setHideAmounts } = useHideAmounts();
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(true);
@@ -118,6 +120,18 @@ export default function SettingsScreen() {
               <Text style={[ledgerDim(), { fontSize: 11, marginTop: 2 }]}>{themeLabel}</Text>
             </View>
             <ThemeToggle />
+          </View>
+          <View style={[ledgerRow, { paddingVertical: spacing.lg }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[ledgerText(), { fontSize: 14 }]}>Hide amounts</Text>
+              <Text style={[ledgerDim(), { fontSize: 11, marginTop: 2 }]}>Mask account balances and other sensitive amounts</Text>
+            </View>
+            <Switch
+              value={hideAmounts}
+              onValueChange={setHideAmounts}
+              trackColor={{ false: '#1a0a0a', true: '#B91C1C' }}
+              thumbColor="#fff"
+            />
           </View>
           <View style={ledgerLine} />
         </View>

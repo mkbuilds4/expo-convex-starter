@@ -119,7 +119,7 @@ export default defineSchema({
     sortOrder: v.number(),
   }).index('by_user', ['userId']),
 
-  // Income sources (salary, freelance, etc.) — amount per period
+  // Income sources (salary, freelance, etc.) — expected amount per period
   incomeSources: defineTable({
     userId: v.string(),
     name: v.string(),
@@ -128,6 +128,18 @@ export default defineSchema({
     type: v.optional(v.string()), // 'salary' | 'freelance' | 'gig' | 'other'
     sortOrder: v.number(),
   }).index('by_user', ['userId']),
+
+  // Actual income received (variable per month) — log each payment
+  incomeEntries: defineTable({
+    userId: v.string(),
+    sourceId: v.optional(v.id('incomeSources')), // optional: link to a source
+    sourceName: v.optional(v.string()), // when sourceId missing, e.g. "Other" or custom name
+    amount: v.number(), // cents
+    date: v.string(), // YYYY-MM-DD
+    note: v.optional(v.string()),
+  })
+    .index('by_user', ['userId'])
+    .index('by_user_date', ['userId', 'date']),
 
   // Potential jobs/opportunities for forecasting
   incomeForecasts: defineTable({

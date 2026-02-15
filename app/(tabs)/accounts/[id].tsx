@@ -16,7 +16,8 @@ import {
   ledgerSection,
   ledgerRow,
 } from '../../../lib/ledger-theme';
-import { formatCurrency, parseAmountToCents, parsePaymentDueDate } from '../../../lib/format';
+import { formatCurrency, formatCurrencyOrHide, parseAmountToCents, parsePaymentDueDate } from '../../../lib/format';
+import { useHideAmounts } from '../../../lib/hide-amounts-context';
 import { Text, Button, Input, BackHeader } from '../../../components';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +40,7 @@ export default function AccountDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { hideAmounts } = useHideAmounts();
   const { colors, resolvedScheme } = useTheme();
   const isDark = resolvedScheme === 'dark';
 
@@ -149,7 +151,7 @@ export default function AccountDetailScreen() {
           <View style={[ledgerRow, { paddingVertical: spacing.lg }]}>
             <Text style={ledgerDim({ fontSize: 12 })}>Balance</Text>
             <Text style={[ledgerText(), { fontSize: 18, color: isDebt ? '#DC2626' : '#B91C1C' }]}>
-              {formatCurrency(account.currentBalance)}
+              {formatCurrencyOrHide(account.currentBalance, hideAmounts)}
             </Text>
           </View>
           {isDebt && (account.interestRate != null || account.minimumPayment != null || account.nextPaymentDueDate) && (
@@ -164,7 +166,7 @@ export default function AccountDetailScreen() {
               {account.minimumPayment != null && (
                 <View style={ledgerRow}>
                   <Text style={ledgerDim({ fontSize: 12 })}>Min payment</Text>
-                  <Text style={ledgerText({ fontSize: 14 })}>{formatCurrency(account.minimumPayment)}/mo</Text>
+                  <Text style={ledgerText({ fontSize: 14 })}>{formatCurrencyOrHide(account.minimumPayment, hideAmounts)}/mo</Text>
                 </View>
               )}
               {account.nextPaymentDueDate && (
@@ -204,7 +206,7 @@ export default function AccountDetailScreen() {
                     )}
                   </View>
                   <Text style={[ledgerText({ fontSize: 14 }), { color: isOut ? '#DC2626' : '#B91C1C' }]}>
-                    {formatCurrency(t.amount, { signed: true })}
+                    {formatCurrencyOrHide(t.amount, hideAmounts, { signed: true })}
                   </Text>
                 </View>
               );
@@ -265,7 +267,7 @@ export default function AccountDetailScreen() {
               />
               {reconcileBalance.trim() !== '' && (
                 <Text variant="caption" style={{ color: reconcileDiff === 0 ? colors.primary : colors.error }}>
-                  {reconcileDiff === 0 ? 'Matches' : `Difference: ${formatCurrency(Math.abs(reconcileDiff), { signed: true })}`}
+                  {reconcileDiff === 0 ? 'Matches' : `Difference: ${formatCurrencyOrHide(Math.abs(reconcileDiff), hideAmounts, { signed: true })}`}
                 </Text>
               )}
               <View style={styles.modalActions}>
