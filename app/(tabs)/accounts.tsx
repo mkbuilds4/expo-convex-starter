@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useMutation, useAction } from 'convex/react';
@@ -601,6 +601,32 @@ export default function AccountsScreen() {
               {!plaidLinking && <Ionicons name="chevron-forward" size={20} color={colors.muted} />}
             </Pressable>
 
+            {/* Apple Card — not via Plaid; native FinanceKit coming later (iOS only) */}
+            {Platform.OS === 'ios' && (
+              <View style={[styles.appleCardCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.appleCardIconWrap, { backgroundColor: colors.text }]}>
+                  <Ionicons name="card-outline" size={22} color={colors.surface} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text variant="body" style={{ color: colors.text, fontWeight: '600' }}>
+                    Apple Card
+                  </Text>
+                  <Text variant="caption" style={{ color: colors.muted, marginTop: 4 }}>
+                    Apple Card is not available through Connect your bank (Plaid). We are working on adding it via Apple FinanceKit. For now you can add Apple Card as a manual account and track it here.
+                  </Text>
+                  <Pressable
+                    onPress={() => Linking.openSettings()}
+                    style={({ pressed }) => [
+                      { marginTop: spacing.sm, alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 8, borderRadius: radii.sm, backgroundColor: colors.primary + '20' },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                  >
+                    <Text variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>Open Settings</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+
             <Pressable
               disabled={extracting}
               style={({ pressed }) => [
@@ -922,6 +948,22 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   plaidIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appleCardCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: spacing.lg,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  appleCardIconWrap: {
     width: 44,
     height: 44,
     borderRadius: radii.md,

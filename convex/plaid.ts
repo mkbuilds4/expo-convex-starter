@@ -313,20 +313,24 @@ export const createLinkToken = action({
       );
     }
     const baseUrl = getPlaidBaseUrl();
+    const redirectUri = process.env.PLAID_REDIRECT_URI?.trim();
+    const body: Record<string, unknown> = {
+      client_id: clientId,
+      secret,
+      user: { client_user_id: userId },
+      client_name: 'Fulus',
+      // Transactions only: accept all account types (checking, savings, credit, loan, investment).
+      products: ['transactions'],
+      country_codes: ['US'],
+      language: 'en',
+    };
+    // Required for OAuth on iOS (e.g. Chase, many US banks). Must be an HTTPS URL registered in Plaid Dashboard and set up as a Universal Link.
+    if (redirectUri) body.redirect_uri = redirectUri;
+
     const res = await fetch(`${baseUrl}/link/token/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: clientId,
-        secret,
-        user: { client_user_id: userId },
-        client_name: 'Fulus',
-        // Transactions only: accept all account types (checking, savings, credit, loan, investment).
-        // No account_filters = Link shows every account that supports transactions. Balances are pulled after link via /accounts/get and /accounts/balance/get.
-        products: ['transactions'],
-        country_codes: ['US'],
-        language: 'en',
-      }),
+      body: JSON.stringify(body),
     });
     const data = (await res.json()) as { link_token?: string; error_code?: string; error_message?: string };
     if (!res.ok || data.error_code) {

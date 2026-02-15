@@ -57,6 +57,8 @@ Plaid offers several products you can leverage. Here's what's relevant and what 
 
 **Note:** Plaid's v2 Personal Finance Categories (available since Dec 2025) provide AI-enhanced categorization — use this for automatic transaction tagging.
 
+**Apple Card (FinanceKit):** Apple Card is **not** supported by Plaid. It is exposed to apps via **Apple’s FinanceKit** on iOS (used by YNAB, Monarch, etc.). To support Apple Card in this app, implement a native FinanceKit integration (entitlement, Swift/RN bridge, sync balances and transactions to backend); Plaid Link will not show or connect Apple Card.
+
 ---
 
 ## Feature Set (Phased)

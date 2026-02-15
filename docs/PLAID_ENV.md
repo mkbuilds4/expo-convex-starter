@@ -7,6 +7,7 @@ Add these in **Convex Dashboard** → your deployment → **Settings** → **Env
 | `PLAID_CLIENT_ID` | Your Plaid client ID | From [dashboard.plaid.com](https://dashboard.plaid.com) → Keys |
 | `PLAID_SECRET` | Sandbox or production secret | Sandbox for dev; **production** secret for production deployment |
 | `PLAID_BASE_URL` | *(optional)* `https://production.plaid.com` | Set only for **production**; omit for sandbox |
+| `PLAID_REDIRECT_URI` | *(optional)* Your HTTPS redirect URL | **Required for OAuth on iOS.** Add the same URL to Plaid Dashboard → Team Settings → API → Allowed redirect URIs, and set it up as a [Universal Link](https://plaid.com/docs/link/oauth/#create-and-register-a-redirect-uri) so users return to the app after bank auth. Example: `https://yourapp.com/plaid/` |
 
 **Production:** For the Convex **production** deployment, set `PLAID_CLIENT_ID` and `PLAID_SECRET` to your **production** keys and set `PLAID_BASE_URL` to `https://production.plaid.com`. If you use production keys without `PLAID_BASE_URL`, or sandbox keys with it, you’ll get “invalid client_id or secret”.
 
