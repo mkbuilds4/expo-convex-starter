@@ -18,7 +18,8 @@ export default function Index() {
     } else {
       router.replace('/(auth)');
     }
-  }, [isAuthenticated, isLoading, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- router reference can change and cause redirect loops on device
+  }, [isAuthenticated, isLoading]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

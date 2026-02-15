@@ -1,21 +1,32 @@
 {
   "expo": {
-    "name": "Expo Convex Starter",
-    "slug": "expo-convex-starter",
-    "scheme": "expostarter",
+    "name": "Fulus",
+    "slug": "fulus",
+    "scheme": "fulus",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Fulus to access your photos to upload statement screenshots.",
+          "cameraPermission": "Allow Fulus to use the camera to capture statement screenshots."
+        }
+      ]
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.expo-convex-starter",
+      "appleTeamId": "7N3U4G33DU"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +34,10 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

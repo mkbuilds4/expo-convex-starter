@@ -1,31 +1,159 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Tabs } from 'expo-router';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useConvexAuth } from 'convex/react';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../lib/theme-context';
+import { spacing } from '../../lib/theme';
+
+const AUTH_SETTLE_MS = 2000;
 
 export default function TabsLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { colors } = useTheme();
+  const authSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
-    if (!isAuthenticated) router.replace('/(auth)');
-  }, [isAuthenticated, isLoading, router]);
+    if (isAuthenticated) {
+      if (authSettleRef.current) clearTimeout(authSettleRef.current);
+      authSettleRef.current = null;
+      return;
+    }
+    // Debounce redirect so brief Convex reconnects on device don't kick user to auth (2s)
+    authSettleRef.current = setTimeout(() => {
+      authSettleRef.current = null;
+      router.replace('/(auth)');
+    }, AUTH_SETTLE_MS);
+    return () => {
+      if (authSettleRef.current) clearTimeout(authSettleRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- router in deps causes redirect loops when Convex reconnects on device
+  }, [isAuthenticated, isLoading]);
+
+  const tabBarStyle = {
+    backgroundColor: colors.surface,
+    borderTopColor: colors.background,
+    borderTopWidth: 1,
+    height: 56 + insets.bottom,
+    paddingTop: spacing.sm,
+    paddingBottom: insets.bottom,
+    elevation: 0,
+    shadowOpacity: 0,
+  };
+
+  const iconSize = 22;
+  const screenOptions = {
+    headerShown: false,
+    tabBarStyle,
+    tabBarActiveTintColor: colors.primary,
+    tabBarInactiveTintColor: colors.muted,
+    tabBarLabelStyle: {
+      fontSize: 11,
+      fontWeight: '500' as const,
+    },
+    tabBarItemStyle: {
+      paddingVertical: spacing.xs,
+    },
+    tabBarHideOnKeyboard: true,
+  };
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: { backgroundColor: colors.surface },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.muted,
-      }}
-    >
-      <Tabs.Screen name="index" options={{ title: 'Home', tabBarLabel: 'Home' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarLabel: 'Profile' }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarLabel: 'Settings' }} />
+    <Tabs screenOptions={screenOptions}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Dashboard',
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'home' : 'home-outline'}
+              size={iconSize}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="budget"
+        options={{
+          title: 'Your financial house',
+          tabBarLabel: 'House',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'business' : 'business-outline'}
+              size={iconSize}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="accounts"
+        options={{
+          title: 'Accounts',
+          tabBarLabel: 'Accounts',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'card' : 'card-outline'}
+              size={iconSize}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="transactions"
+        options={{
+          title: 'Transactions',
+          tabBarLabel: 'Activity',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'list' : 'list-outline'}
+              size={iconSize}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: 'More',
+          tabBarLabel: 'More',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'menu' : 'menu-outline'}
+              size={iconSize}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="networth"
+        options={{
+          href: null,
+          title: 'Net Worth',
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          href: null,
+          title: 'Profile',
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null,
+          title: 'Settings',
+        }}
+      />
     </Tabs>
   );
 }

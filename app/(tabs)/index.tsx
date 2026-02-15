@@ -1,121 +1,34 @@
-import { useState } from 'react';
-import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQuery, useMutation } from 'convex/react';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import Toast from 'react-native-toast-message';
+import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { taskSchema, type TaskFormData } from '../../lib/schemas';
 import { useTheme } from '../../lib/theme-context';
 import { spacing, radii } from '../../lib/theme';
+import { formatCurrency, getCurrentMonth, getTimeGreeting, formatMonth } from '../../lib/format';
+import { Text, Button } from '../../components';
 import { authClient } from '../../lib/auth-client';
-import { Button, Input, Text } from '../../components';
+import { Ionicons } from '@expo/vector-icons';
 
-function AddTaskForm() {
-  const createTask = useMutation(api.tasks.create);
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<TaskFormData>({
-    resolver: zodResolver(taskSchema),
-    defaultValues: { title: '' },
-  });
-
-  const onSubmit = async (data: TaskFormData) => {
-    try {
-      await createTask({ title: data.title });
-      reset();
-      Toast.show({ type: 'success', text1: 'Added' });
-    } catch (e) {
-      Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Failed to add' });
-    }
-  };
-
-  return (
-    <>
-      <Controller
-        control={control}
-        name="title"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <Input
-            placeholder="New item"
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            editable={!isSubmitting}
-            accessibilityLabel="New item title"
-          />
-        )}
-      />
-      {errors.title ? (
-        <Text variant="error" style={styles.formError}>{errors.title.message}</Text>
-      ) : null}
-      <Button loading={isSubmitting} onPress={handleSubmit(onSubmit)} disabled={isSubmitting}>
-        Add item
-      </Button>
-    </>
-  );
-}
-
-function DemoItem({
-  title,
-  completed,
-  onToggle,
-}: {
-  title: string;
-  completed: boolean;
-  onToggle: () => void;
-}) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onToggle}
-      style={({ pressed }) => [styles.demoRow, pressed && styles.demoRowPressed]}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: completed }}
-      accessibilityLabel={title}
-    >
-      <View
-        style={[
-          styles.demoCheckbox,
-          { borderColor: colors.muted },
-          completed && { backgroundColor: colors.primary, borderColor: colors.primary },
-        ]}
-      >
-        {completed ? (
-          <Text style={StyleSheet.flatten([styles.demoCheckmark, { color: colors.onPrimary }])}>✓</Text>
-        ) : null}
-      </View>
-      <Text
-        variant="body"
-        style={StyleSheet.flatten([
-          styles.demoRowTitle,
-          completed && { textDecorationLine: 'line-through' as const, color: colors.muted },
-        ])}
-        numberOfLines={1}
-      >
-        {title}
-      </Text>
-    </Pressable>
-  );
-}
-
-export default function HomeScreen() {
+export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { data: session } = authClient.useSession();
-  const tasks = useQuery(api.tasks.list);
-  const toggleTask = useMutation(api.tasks.toggle);
   const { colors } = useTheme();
+  const month = getCurrentMonth();
+  const dashboard = useQuery(api.budget.getDashboard, { month });
+  const netWorth = useQuery(api.networth.getSummary);
+  const { data: session } = authClient.useSession();
 
-  const firstName = session?.user?.name?.trim().split(/\s+/)[0] || null;
-  const welcomeName = firstName || 'there';
-  const taskList = tasks ?? [];
-  const isEmpty = taskList.length === 0;
+  const firstName = session?.user?.name?.trim().split(/\s+/)[0] || 'there';
+  const greeting = getTimeGreeting();
+
+  const readyToAssign = dashboard?.readyToAssign ?? 0;
+  const categories = dashboard?.categories ?? [];
+  const totalOnBudget = dashboard?.totalOnBudget ?? 0;
+  const accounts = (dashboard?.onBudgetAccounts ?? []).filter((a) => a.type === 'depository');
+
+  const overspentCount = categories.filter((c) => (c.assigned - c.spent) < 0).length;
+  const onTrackCount = categories.length - overspentCount;
 
   return (
     <ScrollView
@@ -123,187 +36,366 @@ export default function HomeScreen() {
       contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
       showsVerticalScrollIndicator={false}
     >
+      {/* Header */}
       <View style={styles.header}>
-        <Text variant="title">Home</Text>
-        <Text variant="subtitle">Welcome back</Text>
-      </View>
-
-      {/* Welcome */}
-      <View style={styles.section}>
-        <View style={[styles.welcomeCard, { backgroundColor: colors.surface }]}>
-          <Text variant="cardTitle" style={{ color: colors.text }}>
-            Hi, {welcomeName}
+        <View>
+          <Text variant="subtitle" style={styles.greeting}>
+            {greeting}, {firstName}
           </Text>
-          <Text variant="body" style={StyleSheet.flatten([styles.welcomeSubtext, { color: colors.muted }])}>
-            This is your home screen. Replace this with your own content and features.
+          <Text variant="caption" style={{ color: colors.muted }}>
+            {formatMonth(month)}
           </Text>
         </View>
       </View>
 
-      {/* Shortcuts */}
-      <View style={styles.section}>
-        <Text variant="caption" style={StyleSheet.flatten([styles.sectionLabel, { color: colors.muted }])}>
-          Shortcuts
+      {/* Hero: Ready to Assign */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.heroCard,
+          {
+            backgroundColor: colors.primary,
+            opacity: pressed ? 0.95 : 1,
+          },
+        ]}
+        onPress={() => router.push('/(tabs)/budget')}
+      >
+        <Text style={[styles.heroLabel, { color: 'rgba(255,255,255,0.9)' }]}>
+          Ready to assign
         </Text>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <Pressable
-            style={({ pressed }) => [styles.linkRow, pressed && { opacity: 0.8 }]}
-            onPress={() => router.push('/(tabs)/profile')}
-            accessibilityRole="button"
-            accessibilityLabel="Open Profile"
-          >
-            <Text variant="body" style={{ color: colors.text }}>Profile</Text>
-            <Text variant="body" style={{ color: colors.muted }}>→</Text>
-          </Pressable>
-          <View style={[styles.divider, { backgroundColor: colors.background }]} />
-          <Pressable
-            style={({ pressed }) => [styles.linkRow, pressed && { opacity: 0.8 }]}
-            onPress={() => router.push('/(tabs)/settings')}
-            accessibilityRole="button"
-            accessibilityLabel="Open Settings"
-          >
-            <Text variant="body" style={{ color: colors.text }}>Settings</Text>
-            <Text variant="body" style={{ color: colors.muted }}>→</Text>
-          </Pressable>
+        <Text style={[styles.heroAmount, { color: '#fff' }]}>
+          {formatCurrency(readyToAssign)}
+        </Text>
+        <View style={styles.heroHint}>
+          <Text style={[styles.heroHintText, { color: 'rgba(255,255,255,0.85)' }]}>
+            Tap to assign to rooms
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.85)" />
         </View>
+      </Pressable>
+
+      {/* Quick actions */}
+      <View style={styles.quickActions}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.quickActionBtn,
+            { backgroundColor: colors.surface },
+            pressed && { opacity: 0.85 },
+          ]}
+          onPress={() => router.push('/(tabs)/transactions')}
+        >
+          <Ionicons name="add-circle" size={24} color={colors.primary} />
+          <Text variant="caption" style={[styles.quickActionLabel, { color: colors.text }]}>
+            Add transaction
+          </Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [
+            styles.quickActionBtn,
+            { backgroundColor: colors.surface },
+            pressed && { opacity: 0.85 },
+          ]}
+          onPress={() => router.push('/(tabs)/budget')}
+        >
+          <Ionicons name="business-outline" size={24} color={colors.primary} />
+          <Text variant="caption" style={[styles.quickActionLabel, { color: colors.text }]}>
+            House
+          </Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [
+            styles.quickActionBtn,
+            { backgroundColor: colors.surface },
+            pressed && { opacity: 0.85 },
+          ]}
+          onPress={() => router.push('/(tabs)/accounts')}
+        >
+          <Ionicons name="card-outline" size={24} color={colors.primary} />
+          <Text variant="caption" style={[styles.quickActionLabel, { color: colors.text }]}>
+            Accounts
+          </Text>
+        </Pressable>
       </View>
 
-      {/* Convex demo – example of real-time data */}
+      {/* Accounts summary */}
       <View style={styles.section}>
-        <Text variant="caption" style={StyleSheet.flatten([styles.sectionLabel, { color: colors.muted }])}>
-          Convex demo
-        </Text>
-        <Text variant="caption" style={StyleSheet.flatten([styles.sectionHint, { color: colors.muted }])}>
-          Example list with real-time sync. Replace or remove this section.
-        </Text>
-        <View style={[styles.demoCard, { backgroundColor: colors.surface }]}>
-          <View style={styles.demoForm}>
-            <AddTaskForm />
-          </View>
-          <View style={[styles.demoDivider, { backgroundColor: colors.background }]} />
-          {isEmpty ? (
-            <View style={styles.demoEmpty}>
-              <Text variant="body" style={StyleSheet.flatten([styles.demoEmptyTitle, { color: colors.text }])}>
-                No items yet
-              </Text>
-              <Text variant="caption" style={{ color: colors.muted }}>
-                Add one above to see Convex sync.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.demoList}>
-              {taskList.map((item) => (
-                <View key={item._id}>
-                  <DemoItem
-                    title={item.title}
-                    completed={item.completed}
-                    onToggle={() => toggleTask({ id: item._id })}
-                  />
-                  {item._id !== taskList[taskList.length - 1]?._id ? (
-                    <View style={[styles.demoRowDivider, { backgroundColor: colors.background }]} />
-                  ) : null}
-                </View>
-              ))}
-            </View>
+        <View style={styles.sectionHeader}>
+          <Text variant="caption" style={[styles.sectionLabel, { color: colors.muted }]}>
+            Checking & savings
+          </Text>
+          {accounts.length > 0 && (
+            <Text variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>
+              {formatCurrency(totalOnBudget)}
+            </Text>
           )}
         </View>
+        {accounts.length === 0 ? (
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <Text variant="body" style={{ color: colors.muted }}>
+              No accounts yet. Add checking or savings to start.
+            </Text>
+            <Button onPress={() => router.push('/(tabs)/accounts')} style={styles.topMargin}>
+              Add account
+            </Button>
+          </View>
+        ) : (
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            {accounts.slice(0, 4).map((acc) => (
+              <Pressable
+                key={acc._id}
+                style={({ pressed }) => [
+                  styles.accountRow,
+                  pressed && { opacity: 0.8 },
+                ]}
+                onPress={() => router.push('/(tabs)/accounts')}
+              >
+                <View style={[styles.accountDot, { backgroundColor: colors.primary }]} />
+                <View style={styles.accountInfo}>
+                  <Text variant="body" style={{ color: colors.text }} numberOfLines={1}>
+                    {acc.name}
+                  </Text>
+                  <Text variant="caption" style={{ color: colors.muted }}>
+                    {acc.subtype}
+                  </Text>
+                </View>
+                <Text variant="body" style={{ color: colors.text, fontWeight: '500' }}>
+                  {formatCurrency(acc.availableBalance ?? acc.currentBalance)}
+                </Text>
+              </Pressable>
+            ))}
+            {accounts.length > 4 && (
+              <Pressable
+                style={styles.viewAllRow}
+                onPress={() => router.push('/(tabs)/accounts')}
+              >
+                <Text variant="caption" style={{ color: colors.primary }}>
+                  View all {accounts.length} accounts
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+              </Pressable>
+            )}
+          </View>
+        )}
       </View>
+
+      {/* Your house at a glance */}
+      {categories.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text variant="caption" style={[styles.sectionLabel, { color: colors.muted }]}>
+              Your house this month
+            </Text>
+            <Text variant="caption" style={{ color: colors.muted }}>
+              {onTrackCount} rooms on track
+              {overspentCount > 0 && ` · ${overspentCount} crowded`}
+            </Text>
+          </View>
+          <Pressable
+            style={({ pressed }) => [
+              styles.card,
+              { backgroundColor: colors.surface },
+              pressed && { opacity: 0.95 },
+            ]}
+            onPress={() => router.push('/(tabs)/budget')}
+          >
+            {categories.slice(0, 5).map((c) => {
+              const available = c.assigned - c.spent;
+              const isOverspent = available < 0;
+              const pct = c.assigned > 0 ? Math.min(100, (c.spent / c.assigned) * 100) : 0;
+              return (
+                <View key={c._id} style={styles.categoryRow}>
+                  <View style={styles.categoryLeft}>
+                    <Text variant="body" style={{ color: colors.text }} numberOfLines={1}>
+                      {c.name}
+                    </Text>
+                    <View style={[styles.miniBar, { backgroundColor: colors.background }]}>
+                      <View
+                        style={[
+                          styles.miniBarFill,
+                          {
+                            width: `${pct}%`,
+                            backgroundColor: isOverspent ? colors.error : colors.primary,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                  <Text
+                    variant="caption"
+                    style={{
+                      color: isOverspent ? colors.error : colors.muted,
+                      fontWeight: isOverspent ? '600' : '400',
+                    }}
+                  >
+                    {isOverspent ? `−${formatCurrency(-available)}` : formatCurrency(available)}
+                  </Text>
+                </View>
+              );
+            })}
+            <View style={styles.viewAllRow}>
+              <Text variant="caption" style={{ color: colors.primary }}>
+                Explore all rooms
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+            </View>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Net worth teaser */}
+      {netWorth && (netWorth.totalAssets > 0 || netWorth.totalLiabilities > 0) && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.netWorthTeaser,
+            { backgroundColor: colors.surface },
+            pressed && { opacity: 0.9 },
+          ]}
+          onPress={() => router.push('/(tabs)/networth')}
+        >
+          <View style={styles.netWorthRow}>
+            <Ionicons name="trending-up-outline" size={20} color={colors.primary} />
+            <Text variant="body" style={{ color: colors.text }}>Net worth</Text>
+          </View>
+          <Text
+            variant="body"
+            style={{
+              color: netWorth.netWorth >= 0 ? colors.primary : colors.error,
+              fontWeight: '600',
+            }}
+          >
+            {formatCurrency(netWorth.netWorth)}
+          </Text>
+        </Pressable>
+      )}
+
+      <View style={{ height: insets.bottom + spacing.xxl }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  scrollContent: { paddingBottom: spacing.xxl * 2 },
+  scrollContent: { paddingBottom: spacing.xxl },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  greeting: {
+    fontSize: 22,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  heroCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.xl,
+    borderRadius: radii.lg,
+  },
+  heroLabel: {
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: spacing.xs,
+  },
+  heroAmount: {
+    fontSize: 36,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  heroHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.sm,
+  },
+  heroHintText: {
+    fontSize: 13,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  quickActionBtn: {
+    flex: 1,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.md,
+    alignItems: 'center',
     gap: spacing.xs,
+  },
+  quickActionLabel: {
+    fontSize: 12,
   },
   section: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.xl,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
   sectionLabel: {
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  sectionHint: {
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.xs,
-  },
-  welcomeCard: {
-    borderRadius: radii.lg,
-    padding: spacing.xl,
-    gap: spacing.sm,
-  },
-  welcomeSubtext: {
-    marginTop: spacing.xs,
   },
   card: {
     borderRadius: radii.lg,
-    paddingVertical: spacing.sm,
-    overflow: 'hidden',
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  divider: {
-    height: 1,
-    marginHorizontal: spacing.lg,
-  },
-  demoCard: {
-    borderRadius: radii.lg,
     padding: spacing.lg,
-    overflow: 'hidden',
   },
-  demoForm: {
-    marginBottom: spacing.sm,
-  },
-  demoDivider: {
-    height: 1,
-    marginVertical: spacing.lg,
-  },
-  demoEmpty: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xl,
-    gap: spacing.xs,
-  },
-  demoEmptyTitle: {
-    marginBottom: 0,
-  },
-  demoList: {
-    gap: 0,
-  },
-  demoRow: {
+  accountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xs,
     gap: spacing.md,
   },
-  demoRowPressed: { opacity: 0.8 },
-  demoRowDivider: {
-    height: 1,
-    marginLeft: 24 + spacing.md,
+  accountDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  demoCheckbox: {
-    width: 24,
-    height: 24,
-    borderRadius: radii.sm,
-    borderWidth: 2,
+  accountInfo: { flex: 1, minWidth: 0 },
+  viewAllRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
+    paddingTop: spacing.md,
+    marginTop: spacing.xs,
   },
-  demoCheckmark: { fontSize: 14, fontWeight: '600' },
-  demoRowTitle: { flex: 1 },
-  formError: { marginBottom: spacing.sm },
+  categoryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
+  },
+  categoryLeft: { flex: 1, minWidth: 0 },
+  miniBar: {
+    height: 4,
+    borderRadius: 2,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  miniBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  netWorthTeaser: {
+    marginHorizontal: spacing.lg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.lg,
+    borderRadius: radii.lg,
+  },
+  netWorthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  topMargin: { marginTop: spacing.md },
 });

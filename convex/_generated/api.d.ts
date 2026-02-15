@@ -8,9 +8,16 @@
  * @module
  */
 
+import type * as accounts from "../accounts.js";
 import type * as auth from "../auth.js";
+import type * as budget from "../budget.js";
 import type * as http from "../http.js";
+import type * as networth from "../networth.js";
+import type * as plaid from "../plaid.js";
+import type * as statementExtract from "../statementExtract.js";
 import type * as tasks from "../tasks.js";
+import type * as transactions from "../transactions.js";
+import type * as upload from "../upload.js";
 
 import type {
   ApiFromModules,
@@ -19,9 +26,16 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accounts: typeof accounts;
   auth: typeof auth;
+  budget: typeof budget;
   http: typeof http;
+  networth: typeof networth;
+  plaid: typeof plaid;
+  statementExtract: typeof statementExtract;
   tasks: typeof tasks;
+  transactions: typeof transactions;
+  upload: typeof upload;
 }>;
 
 /**
