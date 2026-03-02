@@ -11,16 +11,12 @@ import { Text, Input, BackHeader } from '../components';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  LEDGER_BG,
   LEDGER_FONT,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerSection,
   ledgerRow,
-  ledgerBtn,
   ledgerSectionLabel,
+  useLedgerTheme,
 } from '../lib/ledger-theme';
 import { useLedgerStyles } from '../lib/financial-state-context';
 
@@ -46,7 +42,8 @@ function frequencyLabel(freq: string): string {
 export default function IncomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { accent, accentDim } = useLedgerStyles();
+  const { ledgerBg, ledgerBtn } = useLedgerTheme();
+  const { ledgerText, ledgerDim, ledgerLine, accent, accentDim } = useLedgerStyles();
   const params = useLocalSearchParams<{ add?: string }>();
   const month = getCurrentMonth();
   const sources = useQuery(api.income.listSources) ?? [];
@@ -210,7 +207,7 @@ export default function IncomeScreen() {
   };
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xxl }]}
@@ -333,7 +330,7 @@ export default function IncomeScreen() {
       </ScrollView>
 
       <Modal visible={modalOpen} animationType="slide" transparent>
-        <View style={[styles.modalOverlay, { backgroundColor: LEDGER_BG }]}>
+        <View style={[styles.modalOverlay, { backgroundColor: ledgerBg }]}>
           <View style={styles.modalCardWrap}>
             <View style={[styles.modalCard, { borderColor: accentDim + '80' }]}>
               <Text style={[ledgerText(), styles.modalTitle]}>{editingId ? 'Edit source' : 'Add income source'}</Text>
@@ -421,7 +418,7 @@ export default function IncomeScreen() {
       </Modal>
 
       <Modal visible={logModalOpen} animationType="slide" transparent>
-        <View style={[styles.modalOverlay, { backgroundColor: LEDGER_BG }]}>
+        <View style={[styles.modalOverlay, { backgroundColor: ledgerBg }]}>
           <View style={styles.modalCardWrap}>
             <View style={[styles.modalCard, { borderColor: accentDim + '80' }]}>
               <Text style={[ledgerText(), styles.modalTitle]}>Log income</Text>

@@ -8,13 +8,10 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import { useTheme } from '../../../lib/theme-context';
 import { spacing, radii } from '../../../lib/theme';
 import {
-  LEDGER_BG,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerSection,
   ledgerRow,
+  useLedgerTheme,
 } from '../../../lib/ledger-theme';
 import { formatCurrency, formatCurrencyOrHide, parseAmountToCents, parsePaymentDueDate } from '../../../lib/format';
 import { useHideAmounts } from '../../../lib/hide-amounts-context';
@@ -42,6 +39,7 @@ export default function AccountDetailScreen() {
   const insets = useSafeAreaInsets();
   const { hideAmounts } = useHideAmounts();
   const { colors, resolvedScheme } = useTheme();
+  const { ledgerBg, ledgerText, ledgerDim, ledgerLine } = useLedgerTheme();
   const isDark = resolvedScheme === 'dark';
 
   const accountId = id as Id<'accounts'>;
@@ -71,9 +69,9 @@ export default function AccountDetailScreen() {
   if (id === undefined) return null;
   if (account === undefined) {
     return (
-      <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+      <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
         <BackHeader variant="ledger" title="Account" onBack={() => router.back()} />
-        <View style={[styles.loading, { backgroundColor: LEDGER_BG }]}>
+        <View style={[styles.loading, { backgroundColor: ledgerBg }]}>
           <Text style={ledgerDim({ fontSize: 14 })}>Loading…</Text>
         </View>
       </View>
@@ -81,9 +79,9 @@ export default function AccountDetailScreen() {
   }
   if (account === null) {
     return (
-      <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+      <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
         <BackHeader variant="ledger" title="Account" onBack={() => router.back()} />
-        <View style={[styles.loading, { backgroundColor: LEDGER_BG }]}>
+        <View style={[styles.loading, { backgroundColor: ledgerBg }]}>
           <Text style={ledgerDim({ fontSize: 14 })}>Account not found</Text>
           <Button onPress={() => router.back()}>Back to accounts</Button>
         </View>
@@ -138,7 +136,7 @@ export default function AccountDetailScreen() {
   const reconcileDiff = account.currentBalance - parseAmountToCents(reconcileBalance || '0');
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xxl }]}
@@ -150,7 +148,7 @@ export default function AccountDetailScreen() {
           <View style={ledgerLine} />
           <View style={[ledgerRow, { paddingVertical: spacing.lg }]}>
             <Text style={ledgerDim({ fontSize: 12 })}>Balance</Text>
-            <Text style={[ledgerText(), { fontSize: 18, color: isDebt ? '#DC2626' : '#B91C1C' }]}>
+            <Text style={[ledgerText(), { fontSize: 18, color: isDebt ? colors.error : colors.primary }]}>
               {formatCurrencyOrHide(account.currentBalance, hideAmounts)}
             </Text>
           </View>
@@ -205,7 +203,7 @@ export default function AccountDetailScreen() {
                       </Text>
                     )}
                   </View>
-                  <Text style={[ledgerText({ fontSize: 14 }), { color: isOut ? '#DC2626' : '#B91C1C' }]}>
+                  <Text style={[ledgerText({ fontSize: 14 }), { color: isOut ? colors.error : colors.primary }]}>
                     {formatCurrencyOrHide(t.amount, hideAmounts, { signed: true })}
                   </Text>
                 </View>
@@ -245,7 +243,7 @@ export default function AccountDetailScreen() {
             </Pressable>
           )}
           <Pressable style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]} onPress={handleDelete}>
-            <Text style={[ledgerText(), { fontSize: 14, color: '#DC2626' }]}>Remove account</Text>
+            <Text style={[ledgerText(), { fontSize: 14, color: colors.error }]}>Remove account</Text>
             <Ionicons name="chevron-forward" size={18} color="#7F1D1D" />
           </Pressable>
           <View style={ledgerLine} />

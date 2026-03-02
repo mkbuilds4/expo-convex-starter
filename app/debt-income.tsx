@@ -5,15 +5,11 @@ import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { spacing } from '../lib/theme';
 import {
-  LEDGER_BG,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerHeaderRow,
   ledgerSection,
   ledgerRow,
-  ledgerBtn,
+  useLedgerTheme,
 } from '../lib/ledger-theme';
 import { formatCurrency, getCurrentMonth, getDaysLeftInMonth } from '../lib/format';
 import { Text, BackHeader } from '../components';
@@ -22,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function DebtIncomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { ledgerBg, ledgerText, ledgerDim, ledgerLine, ledgerBtn } = useLedgerTheme();
   const month = getCurrentMonth();
   const billsTotalCents = useQuery(api.bills.getTotalMonthlyCents) ?? 0;
   const receivedThisMonth = useQuery(api.income.getTotalReceivedInMonth, { month }) ?? 0;
@@ -44,10 +41,10 @@ export default function DebtIncomeScreen() {
   const showPerDay = isShortfall && needMoreCents > 0 && daysLeftInMonth > 0;
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xxl, backgroundColor: LEDGER_BG }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xxl, backgroundColor: ledgerBg }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[ledgerHeader, { paddingBottom: spacing.md }]}>

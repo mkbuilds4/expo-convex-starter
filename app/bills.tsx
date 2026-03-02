@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, Modal, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Modal, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useMutation } from 'convex/react';
@@ -7,20 +7,17 @@ import { api } from '../convex/_generated/api';
 import type { Id } from '../convex/_generated/dataModel';
 import { spacing, radii } from '../lib/theme';
 import { formatCurrency, parseAmountToCents } from '../lib/format';
-import { Text, Button, Input, BackHeader } from '../components';
+import { Text, Input, BackHeader } from '../components';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  LEDGER_BG,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerSection,
   ledgerSectionLabel,
   ledgerRow,
-  ledgerBtn,
   ledgerHeaderRow,
+  LEDGER_FONT,
+  useLedgerTheme,
 } from '../lib/ledger-theme';
 import { useLedgerStyles } from '../lib/financial-state-context';
 
@@ -33,7 +30,8 @@ function parseDueDay(input: string): number | null {
 export default function BillsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { accent, accentDim } = useLedgerStyles();
+  const { ledgerBg, ledgerBtn, resolvedScheme } = useLedgerTheme();
+  const { ledgerText, ledgerDim, ledgerLine, accent, accentDim } = useLedgerStyles();
   const bills = useQuery(api.bills.list) ?? [];
   const totalCents = useQuery(api.bills.getTotalMonthlyCents) ?? 0;
   const createBill = useMutation(api.bills.create);
@@ -110,7 +108,7 @@ export default function BillsScreen() {
   };
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xxl }]}
@@ -187,41 +185,82 @@ export default function BillsScreen() {
       </ScrollView>
 
       <Modal visible={modalOpen} animationType="slide" transparent>
-        <View style={[styles.modalOverlay, { backgroundColor: LEDGER_BG }]}>
+        <View style={[styles.modalOverlay, { backgroundColor: ledgerBg }]}>
           <View style={styles.modalCardWrap}>
-            <View style={[styles.modalCard, { borderColor: accentDim + '40' }]}>
+            <View style={[styles.modalCard, { borderColor: accentDim + '80', backgroundColor: accentDim + '15' }]}>
               <Text style={[ledgerText(), styles.modalTitle]}>{editingId ? 'Edit bill' : 'Add bill'}</Text>
               <View style={[styles.modalTitleLine, { backgroundColor: accent }]} />
               <Input
                 placeholder="Name (e.g. Rent, Netflix)"
                 value={name}
                 onChangeText={setName}
-                style={[styles.modalInput, { borderColor: accentDim + '50' }]}
-                placeholderTextColor={accentDim + '99'}
+                style={[
+                  styles.modalInput,
+                  {
+                    borderColor: accentDim + '80',
+                    color: accent,
+                    backgroundColor: resolvedScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                  },
+                ]}
+                placeholderTextColor={accentDim + 'aa'}
               />
               <Input
                 placeholder="Amount per month (e.g. 1200)"
                 value={amount}
                 onChangeText={setAmount}
                 keyboardType="decimal-pad"
-                style={[styles.modalInput, { borderColor: accentDim + '50' }]}
-                placeholderTextColor={accentDim + '99'}
+                style={[
+                  styles.modalInput,
+                  {
+                    borderColor: accentDim + '80',
+                    color: accent,
+                    backgroundColor: resolvedScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                  },
+                ]}
+                placeholderTextColor={accentDim + 'aa'}
               />
               <Input
                 placeholder="Due day of month (1–31)"
                 value={dueDay}
                 onChangeText={setDueDay}
                 keyboardType="number-pad"
-                style={[styles.modalInput, { borderColor: accentDim + '50' }]}
-                placeholderTextColor={accentDim + '99'}
+                style={[
+                  styles.modalInput,
+                  {
+                    borderColor: accentDim + '80',
+                    color: accent,
+                    backgroundColor: resolvedScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                  },
+                ]}
+                placeholderTextColor={accentDim + 'aa'}
               />
               <View style={styles.modalActions}>
-                <Button onPress={handleSave} loading={saving} disabled={saving}>
-                  {editingId ? 'Save' : 'Add bill'}
-                </Button>
-                <Button variant="secondary" onPress={() => setModalOpen(false)} disabled={saving}>
-                  Cancel
-                </Button>
+                <Pressable
+                  onPress={handleSave}
+                  disabled={saving}
+                  style={({ pressed }) => [
+                    styles.modalBtnPrimary,
+                    { backgroundColor: accent },
+                    (saving || pressed) && { opacity: pressed ? 0.9 : 0.8 },
+                  ]}
+                >
+                  {saving ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.modalBtnPrimaryText}>{editingId ? 'Save' : 'Add bill'}</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  onPress={() => setModalOpen(false)}
+                  disabled={saving}
+                  style={({ pressed }) => [
+                    styles.modalBtnSecondary,
+                    { borderColor: accentDim },
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  <Text style={[ledgerText({ fontSize: 14 }), { color: accent }]}>Cancel</Text>
+                </Pressable>
               </View>
             </View>
           </View>
@@ -268,9 +307,33 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   modalInput: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
     marginBottom: spacing.md,
   },
   modalActions: { gap: spacing.md, marginTop: spacing.xl },
+  modalBtnPrimary: {
+    minHeight: 44,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.md,
+    width: '100%',
+  },
+  modalBtnPrimaryText: {
+    fontFamily: LEDGER_FONT,
+    fontSize: 16,
+    fontWeight: '500' as const,
+    color: '#fff',
+  },
+  modalBtnSecondary: {
+    minHeight: 44,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.md,
+    width: '100%',
+    borderWidth: 1,
+  },
 });

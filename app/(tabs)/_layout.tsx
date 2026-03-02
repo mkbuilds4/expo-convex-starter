@@ -4,9 +4,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useConvexAuth } from 'convex/react';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../lib/theme-context';
 import { spacing } from '../../lib/theme';
-import { LEDGER_BG } from '../../lib/ledger-theme';
+import { useLedgerTheme } from '../../lib/ledger-theme';
 import { useLedgerAccent } from '../../lib/financial-state-context';
 
 const AUTH_SETTLE_MS = 2000;
@@ -15,7 +14,7 @@ export default function TabsLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const { colors } = useTheme();
+  const { ledgerBg } = useLedgerTheme();
   const { accent, accentDim } = useLedgerAccent();
   const authSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -38,7 +37,7 @@ export default function TabsLayout() {
   }, [isAuthenticated, isLoading]);
 
   const tabBarStyle = {
-    backgroundColor: LEDGER_BG,
+    backgroundColor: ledgerBg,
     borderTopColor: accent,
     borderTopWidth: 1,
     height: 56 + insets.bottom,

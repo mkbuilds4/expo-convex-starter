@@ -4,17 +4,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { spacing } from '../../lib/theme';
+import { spacing, radii } from '../../lib/theme';
 import {
-  LEDGER_BG,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerHeaderRow,
   ledgerSection,
-  ledgerBtn,
+  ledgerSectionLabel,
+  useLedgerTheme,
 } from '../../lib/ledger-theme';
+import { useLedgerStyles } from '../../lib/financial-state-context';
 import { formatCurrency, getCurrentMonth, formatMonth, parseAmountToCents } from '../../lib/format';
 import { Text, Input, RoomCard } from '../../components';
 import Toast from 'react-native-toast-message';
@@ -22,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function BudgetScreen() {
   const insets = useSafeAreaInsets();
+  const { ledgerBg, ledgerBtn, resolvedScheme } = useLedgerTheme();
+  const { ledgerText, ledgerDim, ledgerLine, accent, accentDim } = useLedgerStyles();
   const month = getCurrentMonth();
   const dashboard = useQuery(api.budget.getDashboard, { month });
   const setAssignment = useMutation(api.budget.setAssignment);
@@ -129,10 +129,10 @@ export default function BudgetScreen() {
   };
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: LEDGER_BG }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: ledgerBg }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[ledgerHeader, styles.budgetHeader]}>
@@ -149,7 +149,7 @@ export default function BudgetScreen() {
               <Text style={[ledgerDim(), styles.groupLabel]}>{groupName}</Text>
               <Pressable
                 onPress={() => handleRemoveGroup(groupName, cats.length)}
-                style={({ pressed }) => [styles.removeBtn, pressed && { opacity: 0.7 }]}
+                style={({ pressed }) => [styles.removeBtn, { borderColor: accent }, pressed && { opacity: 0.7 }]}
                 hitSlop={8}
               >
                 <Text style={ledgerText({ fontSize: 11 })}>REMOVE</Text>
@@ -177,27 +177,46 @@ export default function BudgetScreen() {
         ))}
 
         <View style={[ledgerSection, styles.addSection]}>
-          <Text style={[ledgerDim(), styles.addSectionLabel]}>ADD CATEGORY</Text>
+          <Text style={[ledgerDim(), ledgerSectionLabel]}>ADD CATEGORY</Text>
           <View style={ledgerLine} />
           {categories.length === 0 && (
             <Text style={[ledgerDim(), styles.hintText]}>
               Add a group and category to start tracking spending.
             </Text>
           )}
-          <View style={styles.addCard}>
+          <View style={[styles.addCard, { borderColor: accentDim + '80', backgroundColor: accentDim + '15' }]}>
             <Input
               placeholder="Group (e.g. Fixed)"
               value={newGroup}
               onChangeText={setNewGroup}
+              style={[
+                styles.addInput,
+                {
+                  borderColor: accentDim + '80',
+                  color: accent,
+                  backgroundColor: resolvedScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                },
+              ]}
+              placeholderTextColor={accentDim + 'aa'}
             />
             <Input
               placeholder="Category name"
               value={newCategory}
               onChangeText={setNewCategory}
+              style={[
+                styles.addInput,
+                {
+                  borderColor: accentDim + '80',
+                  color: accent,
+                  backgroundColor: resolvedScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                },
+              ]}
+              placeholderTextColor={accentDim + 'aa'}
             />
             <Pressable
               style={({ pressed }) => [
                 styles.addCategoryBtn,
+                { borderColor: newCategory.trim() ? accent : accentDim + '80' },
                 pressed && { opacity: 0.85 },
                 !newCategory.trim() && styles.addCategoryBtnDisabled,
               ]}
@@ -207,8 +226,7 @@ export default function BudgetScreen() {
               <Text
                 style={[
                   ledgerText({ fontSize: 15 }),
-                  styles.addCategoryBtnText,
-                  !newCategory.trim() && styles.addCategoryBtnTextDisabled,
+                  { color: newCategory.trim() ? accent : accentDim },
                 ]}
               >
                 Add category
@@ -256,19 +274,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: '#B91C1C',
     borderRadius: 0,
   },
   addSection: {
     paddingTop: spacing.xl,
   },
-  addSectionLabel: {
-    fontSize: 13,
-    letterSpacing: 1,
-    marginBottom: spacing.md,
-  },
   hintText: {
-    fontSize: 15,
+    fontSize: 14,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
     lineHeight: 22,
@@ -276,30 +288,24 @@ const styles = StyleSheet.create({
   addCard: {
     marginTop: spacing.lg,
     padding: spacing.xl,
-    borderRadius: 0,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(185, 28, 28, 0.35)',
-    backgroundColor: 'rgba(30, 10, 10, 0.6)',
     gap: spacing.lg,
+  },
+  addInput: {
+    borderWidth: 1,
+    marginBottom: 0,
   },
   addCategoryBtn: {
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
-    borderWidth: 2,
-    borderColor: '#B91C1C',
+    borderWidth: 1,
     borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: spacing.sm,
   },
   addCategoryBtnDisabled: {
-    borderColor: '#7F1D1D',
     opacity: 0.6,
-  },
-  addCategoryBtnText: {
-    color: '#B91C1C',
-  },
-  addCategoryBtnTextDisabled: {
-    color: '#7F1D1D',
   },
 });

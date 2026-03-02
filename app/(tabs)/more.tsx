@@ -2,17 +2,13 @@ import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../lib/theme-context';
 import { spacing } from '../../lib/theme';
 import {
-  LEDGER_BG,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerHeaderRow,
   ledgerSection,
   ledgerRow,
+  useLedgerTheme,
 } from '../../lib/ledger-theme';
 import { Text } from '../../components';
 
@@ -23,7 +19,8 @@ const ITEMS = [
   // Income & bills
   { route: '/income' as const, label: 'Income sources', icon: 'cash-outline', subtitle: 'Track salary, freelance, gigs' },
   { route: '/income-forecast' as const, label: 'Income forecast', icon: 'calculator-outline', subtitle: 'Forecast from potential jobs' },
-  { route: '/bills' as const, label: 'Recurring bills', icon: 'calendar-outline', subtitle: 'Monthly expenses for income target' },
+  { route: '/bills' as const, label: 'Recurring bills', icon: 'receipt-outline', subtitle: 'Monthly expenses for income target' },
+  { route: '/payments-calendar' as const, label: 'Payments calendar', icon: 'calendar-outline', subtitle: 'Bills & credit cards due by day' },
   // Net worth & account
   { route: '/(tabs)/networth' as const, label: 'Net Worth', icon: 'trending-up-outline', subtitle: 'Assets, debts & history' },
   { route: '/(tabs)/profile' as const, label: 'Profile', icon: 'person-outline', subtitle: 'Account & member info' },
@@ -33,13 +30,13 @@ const ITEMS = [
 export default function MoreScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { colors } = useTheme();
+  const { ledgerBg, ledgerText, ledgerDim, ledgerLine, ledgerDimColor } = useLedgerTheme();
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: LEDGER_BG }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: ledgerBg }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[ledgerHeader, { paddingBottom: spacing.md }]}>
@@ -63,7 +60,7 @@ export default function MoreScreen() {
               style={({ pressed }) => [
                 ledgerRow,
                 pressed && { opacity: 0.7 },
-                i < ITEMS.length - 1 && styles.rowBorder,
+                i < ITEMS.length - 1 && { borderBottomWidth: 1, borderBottomColor: ledgerDimColor + '33' },
               ]}
               onPress={() => router.push(item.route)}
             >
@@ -75,7 +72,7 @@ export default function MoreScreen() {
                   {item.subtitle}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#7F1D1D" />
+              <Ionicons name="chevron-forward" size={16} color={ledgerDimColor} />
             </Pressable>
           ))}
           <View style={ledgerLine} />
@@ -97,8 +94,4 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   rowLeft: { flex: 1, minWidth: 0 },
-  rowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(185, 28, 28, 0.2)',
-  },
 });

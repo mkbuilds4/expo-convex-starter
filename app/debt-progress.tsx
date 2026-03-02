@@ -5,14 +5,11 @@ import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { spacing } from '../lib/theme';
 import {
-  LEDGER_BG,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerSection,
   ledgerRow,
   ledgerEmpty,
+  useLedgerTheme,
 } from '../lib/ledger-theme';
 import { useLedgerAccent } from '../lib/financial-state-context';
 import { formatCurrency } from '../lib/format';
@@ -21,12 +18,13 @@ import { Text, BackHeader } from '../components';
 export default function DebtProgressScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { ledgerBg, ledgerText, ledgerDim, ledgerLine } = useLedgerTheme();
   const { accent } = useLedgerAccent();
   const data = useQuery(api.debt.getDebtPayoffProjection);
 
   if (data === undefined) {
     return (
-      <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+      <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
         <BackHeader title="Progress" onBack={() => router.back()} variant="ledger" />
         <View style={[ledgerSection, styles.centered]}>
           <Text style={ledgerDim({ fontSize: 14 })}>Loading…</Text>
@@ -40,10 +38,10 @@ export default function DebtProgressScreen() {
   const monthsLeft = data.projection.monthsToPayoff;
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xxl, backgroundColor: LEDGER_BG }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xxl, backgroundColor: ledgerBg }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[ledgerHeader, { paddingBottom: spacing.md }]}>

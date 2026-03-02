@@ -11,16 +11,13 @@ import { Text, Button, Input, BackHeader } from '../components';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  LEDGER_BG,
-  LEDGER_RED_DIM,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerSection,
   ledgerRow,
-  ledgerBtn,
   ledgerSectionLabel,
+  useLedgerTheme,
+  LEDGER_BG,
+  LEDGER_RED_DIM,
 } from '../lib/ledger-theme';
 
 const FREQUENCY_OPTIONS: { value: string; label: string }[] = [
@@ -33,6 +30,7 @@ const FREQUENCY_OPTIONS: { value: string; label: string }[] = [
 export default function IncomeForecastScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { ledgerBg, ledgerText, ledgerDim, ledgerLine, ledgerBtn, ledgerDimColor } = useLedgerTheme();
   const summary = useQuery(api.income.getIncomeSummary);
   const forecasts = useQuery(api.income.listForecasts) ?? [];
   const addForecast = useMutation(api.income.addForecast);
@@ -103,7 +101,7 @@ export default function IncomeForecastScreen() {
   const oneTimeTotal = (summary?.oneTimeForecasts ?? []).reduce((s, f) => s + f.amount, 0);
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xxl }]}
@@ -177,7 +175,7 @@ export default function IncomeForecastScreen() {
                   onPress={() => handleDelete(f._id, f.name)}
                   style={({ pressed }) => [pressed && { opacity: 0.7 }]}
                 >
-                  <Ionicons name="trash-outline" size={18} color={LEDGER_RED_DIM} />
+                  <Ionicons name="trash-outline" size={18} color={ledgerDimColor} />
                 </Pressable>
               </Pressable>
             ))
@@ -189,18 +187,18 @@ export default function IncomeForecastScreen() {
       </ScrollView>
 
       <Modal visible={modalOpen} animationType="slide" transparent>
-        <View style={[styles.modalOverlay, { backgroundColor: LEDGER_BG }]}>
+        <View style={[styles.modalOverlay, { backgroundColor: ledgerBg }]}>
           <View style={styles.modalCardWrap}>
-            <View style={[styles.modalCard, { borderColor: LEDGER_RED_DIM, borderWidth: 1 }]}>
+            <View style={[styles.modalCard, { borderColor: ledgerDimColor, borderWidth: 1 }]}>
               <Text style={[ledgerText(), styles.modalTitle]}>Add potential job</Text>
               <Input placeholder="Name (e.g. Weekend gig, One-off project)" value={name} onChangeText={setName} />
               <Input placeholder="Amount (e.g. 500)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
               <Text style={[ledgerDim(), { fontSize: 11, marginBottom: spacing.xs }]}>Kind</Text>
               <View style={styles.freqRow}>
-                <Pressable onPress={() => setKind('recurring')} style={[styles.chip, kind === 'recurring' && styles.chipSelected]}>
+                <Pressable onPress={() => setKind('recurring')} style={[styles.chip, { borderColor: kind === 'recurring' ? ledgerDimColor : ledgerBg }]}>
                   <Text style={kind === 'recurring' ? ledgerText({ fontSize: 11 }) : ledgerDim({ fontSize: 11 })}>Recurring</Text>
                 </Pressable>
-                <Pressable onPress={() => setKind('one-time')} style={[styles.chip, kind === 'one-time' && styles.chipSelected]}>
+                <Pressable onPress={() => setKind('one-time')} style={[styles.chip, { borderColor: kind === 'one-time' ? ledgerDimColor : ledgerBg }]}>
                   <Text style={kind === 'one-time' ? ledgerText({ fontSize: 11 }) : ledgerDim({ fontSize: 11 })}>One-time</Text>
                 </Pressable>
               </View>
@@ -212,7 +210,7 @@ export default function IncomeForecastScreen() {
                       <Pressable
                         key={opt.value}
                         onPress={() => setFrequency(opt.value)}
-                        style={[styles.chip, frequency === opt.value && styles.chipSelected]}
+                        style={[styles.chip, { borderColor: frequency === opt.value ? ledgerDimColor : ledgerBg }]}
                       >
                         <Text style={frequency === opt.value ? ledgerText({ fontSize: 11 }) : ledgerDim({ fontSize: 11 })}>{opt.label}</Text>
                       </Pressable>
@@ -265,8 +263,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderWidth: 1,
-    borderColor: LEDGER_BG,
   },
-  chipSelected: { borderColor: LEDGER_RED_DIM },
   modalActions: { gap: spacing.sm, marginTop: spacing.lg },
 });

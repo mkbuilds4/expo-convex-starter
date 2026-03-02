@@ -1,12 +1,52 @@
 import { spacing, appFontFamily } from './theme';
+import { useTheme } from './theme-context';
 
-/** Ledger-style design tokens (black background, red monospace) used across the app. */
-export const LEDGER_BG = '#000000';
-export const LEDGER_RED = '#B91C1C';
-export const LEDGER_RED_DIM = '#7F1D1D';
+/** Dark ledger palette (black bg, red monospace). */
+export const ledgerDark = {
+  bg: '#000000',
+  primary: '#B91C1C',
+  dim: '#7F1D1D',
+};
+
+/** Light ledger palette (off-white bg, darker red for contrast). */
+export const ledgerLight = {
+  bg: '#FAFAFA',
+  primary: '#991B1B',
+  dim: '#57534E',
+};
+
+/** @deprecated Use useLedgerTheme().ledgerBg or ledgerDark.bg */
+export const LEDGER_BG = ledgerDark.bg;
+
+export const LEDGER_RED = ledgerDark.primary;
+export const LEDGER_RED_DIM = ledgerDark.dim;
+
 /** Same as theme appFontFamily – use for ledger text helpers. */
 export const LEDGER_FONT = appFontFamily;
 
+/** Theme-aware ledger hook. Use this for all ledger-styled screens. */
+export function useLedgerTheme() {
+  const { resolvedScheme } = useTheme();
+  const p = resolvedScheme === 'dark' ? ledgerDark : ledgerLight;
+  return {
+    ledgerBg: p.bg,
+    ledgerPrimary: p.primary,
+    ledgerDimColor: p.dim,
+    ledgerText: (style: Record<string, unknown> = {}) => ({ fontFamily: LEDGER_FONT, color: p.primary, ...style }),
+    ledgerDim: (style: Record<string, unknown> = {}) => ({ fontFamily: LEDGER_FONT, color: p.dim, ...style }),
+    ledgerLine: { height: 1, backgroundColor: p.primary, opacity: resolvedScheme === 'dark' ? 0.4 : 0.35 },
+    ledgerBtn: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderWidth: 1,
+      borderColor: p.primary,
+      borderRadius: 0,
+    },
+    resolvedScheme,
+  };
+}
+
+/** @deprecated Use useLedgerTheme() – static dark-mode versions */
 export function ledgerText(style: Record<string, unknown> = {}) {
   return { fontFamily: LEDGER_FONT, color: LEDGER_RED, ...style };
 }

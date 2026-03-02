@@ -38,7 +38,11 @@ export function BackHeader({ title, onBack, subtitle, disabled, variant = 'defau
             ←
           </Text>
         </Pressable>
-        <Text variant="cardTitle" style={[styles.title, { color: titleColor }]}>
+        <Text
+          variant="cardTitle"
+          style={[styles.title, { color: titleColor }]}
+          pointerEvents="none"
+        >
           {title}
         </Text>
         <View style={styles.spacer} />

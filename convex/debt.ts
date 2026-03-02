@@ -60,14 +60,27 @@ export const getPlan = query({
   },
 });
 
+/** Convert amount (cents) + frequency to monthly cents. */
+function toMonthlyCents(amount: number, frequency: string): number {
+  switch (frequency) {
+    case 'weekly': return Math.round((amount * 52) / 12);
+    case 'biweekly': return Math.round((amount * 26) / 12);
+    case 'monthly': return amount;
+    case 'annual': return Math.round(amount / 12);
+    case 'one-time': return 0;
+    default: return amount;
+  }
+}
+
 /** Set or update debt payoff plan. Snapshot startedTotalDebtCents if not set. */
 export const setPlan = mutation({
   args: {
     targetDate: v.string(),
     monthlyExtraCents: v.optional(v.number()),
     startedTotalDebtCents: v.optional(v.number()),
+    applySurplusToDebt: v.optional(v.boolean()),
   },
-  handler: async (ctx, { targetDate, monthlyExtraCents, startedTotalDebtCents }) => {
+  handler: async (ctx, { targetDate, monthlyExtraCents, startedTotalDebtCents, applySurplusToDebt }) => {
     const userId = await requireUserId(ctx);
     const accounts = await ctx.db
       .query('accounts')
@@ -89,6 +102,7 @@ export const setPlan = mutation({
       targetDate,
       startedTotalDebtCents: started,
       monthlyExtraCents: monthlyExtraCents ?? existing?.monthlyExtraCents,
+      applySurplusToDebt: applySurplusToDebt ?? existing?.applySurplusToDebt,
     };
 
     if (existing) {
@@ -205,7 +219,41 @@ export const getDebtPayoffProjection = query({
 
     const avalancheOrder = sortByAvalanche(debtAccounts);
 
+    const totalMinimumsCents = debtAccounts.reduce(
+      (s, a) => s + (a.minimumPayment ?? 0),
+      0
+    );
     const monthlyExtra = plan?.monthlyExtraCents ?? 0;
+
+    // Compute projected income and surplus when applySurplusToDebt is on
+    let effectiveMonthlyExtra = monthlyExtra;
+    let surplusCentsUsed = 0;
+    if (plan?.applySurplusToDebt) {
+      const bills = await ctx.db
+        .query('recurringBills')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .collect();
+      const billsTotalCents = bills.reduce((s, b) => s + b.amount, 0);
+
+      const sources = await ctx.db
+        .query('incomeSources')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .collect();
+      const forecasts = await ctx.db
+        .query('incomeForecasts')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .collect();
+      const totalFromSources = sources.reduce((s, src) => s + toMonthlyCents(src.amount, src.frequency), 0);
+      const totalFromRecurringForecasts = forecasts
+        .filter((f) => f.kind === 'recurring' && f.frequency)
+        .reduce((s, f) => s + toMonthlyCents(f.amount, f.frequency!), 0);
+      const projectedMonthlyCents = totalFromSources + totalFromRecurringForecasts;
+
+      const surplusCents = projectedMonthlyCents - billsTotalCents - totalMinimumsCents - monthlyExtra;
+      surplusCentsUsed = Math.max(0, surplusCents);
+      effectiveMonthlyExtra = monthlyExtra + surplusCentsUsed;
+    }
+
     const targetDate = plan?.targetDate ?? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const projection = runAvalancheSim(
       debtAccounts.map((a) => ({
@@ -213,18 +261,13 @@ export const getDebtPayoffProjection = query({
         interestRate: a.interestRate ?? null,
         minimumPayment: a.minimumPayment ?? null,
       })),
-      monthlyExtra,
+      effectiveMonthlyExtra,
       targetDate
     );
 
     const startedTotal = plan?.startedTotalDebtCents ?? totalDebtNow;
     const paidOffFromStart = Math.max(0, startedTotal - totalDebtNow);
     const paidOffPercent = startedTotal > 0 ? (paidOffFromStart / startedTotal) * 100 : 0;
-
-    const totalMinimumsCents = debtAccounts.reduce(
-      (s, a) => s + (a.minimumPayment ?? 0),
-      0
-    );
 
     const debtInput = debtAccounts.map((a) => ({
       currentBalance: a.currentBalance,
@@ -252,8 +295,14 @@ export const getDebtPayoffProjection = query({
       }
     }
 
-    const requiredExtraCents = minimumExtraToHitTargetCents ?? monthlyExtra;
+    const requiredExtraCents = minimumExtraToHitTargetCents ?? effectiveMonthlyExtra;
     const requiredMonthlyTotalCents = totalMinimumsCents + requiredExtraCents;
+
+    // addMoreToHitTarget = how much more the user needs to add (vs their current effective extra)
+    const addMoreToHitTargetCents =
+      minimumExtraToHitTargetCents != null
+        ? Math.max(0, minimumExtraToHitTargetCents - effectiveMonthlyExtra)
+        : null;
 
     const milestones = [
       { id: '25', label: '25% paid off', percent: 25, achieved: paidOffPercent >= 25 },
@@ -269,13 +318,12 @@ export const getDebtPayoffProjection = query({
       paidOffCents: paidOffFromStart,
       targetDate: plan?.targetDate ?? null,
       monthlyExtraCents: plan?.monthlyExtraCents ?? 0,
+      applySurplusToDebt: plan?.applySurplusToDebt ?? false,
+      surplusCentsUsed,
       totalMinimumsCents,
       requiredMonthlyTotalCents,
       minimumExtraToHitTargetCents,
-      addMoreToHitTargetCents:
-        minimumExtraToHitTargetCents != null
-          ? Math.max(0, minimumExtraToHitTargetCents - (plan?.monthlyExtraCents ?? 0))
-          : null,
+      addMoreToHitTargetCents: addMoreToHitTargetCents,
       projection: {
         projectedPayoffDate: projection.projectedPayoffDate,
         onTrack: projection.onTrack,

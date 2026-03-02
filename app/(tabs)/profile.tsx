@@ -6,14 +6,11 @@ import { authClient } from '../../lib/auth-client';
 import { useTheme } from '../../lib/theme-context';
 import { spacing } from '../../lib/theme';
 import {
-  LEDGER_BG,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerHeaderRow,
   ledgerSection,
   ledgerRow,
+  useLedgerTheme,
 } from '../../lib/ledger-theme';
 import { Text } from '../../components';
 
@@ -33,6 +30,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const { colors } = useTheme();
+  const { ledgerBg, ledgerText, ledgerDim, ledgerLine, ledgerPrimary } = useLedgerTheme();
 
   const displayName = session?.user?.name?.trim() || '—';
   const initial = displayName !== '—' ? displayName.charAt(0).toUpperCase() : '?';
@@ -41,10 +39,10 @@ export default function ProfileScreen() {
   const memberSince = formatMemberSince(user?.createdAt);
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: LEDGER_BG }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: ledgerBg }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[ledgerHeader, { paddingBottom: spacing.md }]}>
@@ -57,7 +55,7 @@ export default function ProfileScreen() {
               onPress={() => router.push('/(tabs)/settings')}
               style={({ pressed }) => [styles.settingsBtn, pressed && { opacity: 0.7 }]}
             >
-              <Ionicons name="settings-outline" size={22} color="#7F1D1D" />
+              <Ionicons name="settings-outline" size={22} color={ledgerPrimary} />
             </Pressable>
           </View>
           <View style={ledgerLine} />
@@ -67,7 +65,7 @@ export default function ProfileScreen() {
           <Text style={[ledgerDim(), styles.sectionLabel]}>ACCOUNT</Text>
           <View style={ledgerLine} />
           <View style={styles.avatarRow}>
-            <View style={[styles.avatar, { backgroundColor: '#B91C1C' }]}>
+            <View style={[styles.avatar, { backgroundColor: ledgerPrimary }]}>
               <Text style={[ledgerText(), { fontSize: 28, color: '#fff' }]}>{initial}</Text>
             </View>
             <Pressable

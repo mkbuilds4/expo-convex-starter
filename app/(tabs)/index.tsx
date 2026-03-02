@@ -5,10 +5,10 @@ import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { spacing } from '../../lib/theme';
 import {
-  LEDGER_BG,
   ledgerHeader,
   ledgerSection,
   ledgerEmpty,
+  useLedgerTheme,
 } from '../../lib/ledger-theme';
 import { useLedgerStyles } from '../../lib/financial-state-context';
 import { formatCurrency, formatCurrencyOrHide, getCurrentMonth, getTimeGreeting, formatMonth, getDaysLeftInMonth } from '../../lib/format';
@@ -21,6 +21,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { hideAmounts, setHideAmounts } = useHideAmounts();
+  const { ledgerBg } = useLedgerTheme();
   const { ledgerText, ledgerDim, ledgerLine, accent, accentDim } = useLedgerStyles();
   const month = getCurrentMonth();
   const dashboard = useQuery(api.budget.getDashboard, { month });
@@ -47,10 +48,10 @@ export default function DashboardScreen() {
   const accounts = (dashboard?.onBudgetAccounts ?? []).filter((a) => a.type === 'depository');
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: LEDGER_BG }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: ledgerBg }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[ledgerHeader, { paddingBottom: spacing.lg }]}>

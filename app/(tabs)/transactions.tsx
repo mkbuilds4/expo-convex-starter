@@ -17,18 +17,14 @@ import type { Id } from '../../convex/_generated/dataModel';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { spacing, radii } from '../../lib/theme';
 import {
-  LEDGER_BG,
   LEDGER_FONT,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerHeaderRow,
-  ledgerBtn,
   ledgerSection,
   ledgerRow,
   ledgerEmpty,
   ledgerSectionLabel,
+  useLedgerTheme,
 } from '../../lib/ledger-theme';
 import { useLedgerStyles } from '../../lib/financial-state-context';
 import {
@@ -49,7 +45,8 @@ const todayDate = () => new Date().toISOString().slice(0, 10);
 
 export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
-  const { accent, accentDim } = useLedgerStyles();
+  const { ledgerBg, ledgerBtn } = useLedgerTheme();
+  const { ledgerText, ledgerDim, ledgerLine, accent, accentDim } = useLedgerStyles();
   const transactions = useQuery(api.transactions.listAll, { limit: 150 }) ?? [];
   const accounts = useQuery(api.accounts.list) ?? [];
   const categories = useQuery(api.budget.listCategories) ?? [];
@@ -301,7 +298,7 @@ export default function TransactionsScreen() {
 
   return (
     <>
-      <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+      <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
         <View style={[ledgerHeader, { paddingTop: insets.top, paddingBottom: spacing.md }]}>
           <View style={ledgerHeaderRow}>
             <View>
@@ -366,7 +363,7 @@ export default function TransactionsScreen() {
       {/* Transaction detail modal */}
       <Modal visible={!!detailTxn} animationType="slide" transparent>
         {detailTxn && (
-          <View style={[styles.modalOverlay, { backgroundColor: LEDGER_BG }]}>
+          <View style={[styles.modalOverlay, { backgroundColor: ledgerBg }]}>
             <View style={[styles.ledgerModalWrap, { paddingTop: insets.top }]}>
               <View style={[styles.ledgerModalCard, { borderColor: accentDim + '80' }]}>
                 <View style={styles.ledgerModalHeader}>
@@ -440,7 +437,7 @@ export default function TransactionsScreen() {
 
       {/* Import from bank modal */}
       <Modal visible={importPickerVisible} animationType="slide" transparent>
-        <View style={[styles.modalOverlay, { backgroundColor: LEDGER_BG }]}>
+        <View style={[styles.modalOverlay, { backgroundColor: ledgerBg }]}>
           <View style={[styles.ledgerModalWrap, { paddingTop: insets.top }]}>
             <View style={[styles.ledgerModalCard, { borderColor: accentDim + '80' }]}>
               <View style={styles.ledgerModalHeader}>
@@ -512,7 +509,7 @@ export default function TransactionsScreen() {
       {/* Add transaction modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
-          style={[styles.modalOverlay, { backgroundColor: LEDGER_BG }]}
+          style={[styles.modalOverlay, { backgroundColor: ledgerBg }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={0}
         >

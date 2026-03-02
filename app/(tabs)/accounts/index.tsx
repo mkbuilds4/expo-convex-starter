@@ -8,17 +8,13 @@ import type { Id, Doc } from '../../../convex/_generated/dataModel';
 import { useTheme } from '../../../lib/theme-context';
 import { spacing, radii } from '../../../lib/theme';
 import {
-  LEDGER_BG,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerHeaderRow,
-  ledgerBtn,
   ledgerSummaryRow,
   ledgerEmpty,
   ledgerSection,
   ledgerRow,
+  useLedgerTheme,
 } from '../../../lib/ledger-theme';
 import { formatCurrency, formatCurrencyOrHide, parseAmountToCents, parsePaymentDueDate } from '../../../lib/format';
 import { useHideAmounts } from '../../../lib/hide-amounts-context';
@@ -39,6 +35,7 @@ export default function AccountsScreen() {
   const router = useRouter();
   const { hideAmounts } = useHideAmounts();
   const { colors, resolvedScheme } = useTheme();
+  const { ledgerBg, ledgerText, ledgerDim, ledgerLine, ledgerBtn } = useLedgerTheme();
   const isDark = resolvedScheme === 'dark';
   const accounts = useQuery(api.accounts.list) ?? [];
   const createAccount = useMutation(api.accounts.create);
@@ -234,10 +231,10 @@ export default function AccountsScreen() {
   };
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: LEDGER_BG }]}
+        style={[styles.scroll, { backgroundColor: ledgerBg }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: ledgerBg }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -799,7 +796,7 @@ export default function AccountsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  scroll: { flex: 1, backgroundColor: LEDGER_BG },
+  scroll: { flex: 1 },
   scrollContent: { paddingBottom: spacing.xxl },
   header: {
     paddingHorizontal: spacing.lg,

@@ -18,14 +18,11 @@ import { useHideAmounts } from '../../lib/hide-amounts-context';
 import { spacing, radii } from '../../lib/theme';
 import { useRouter } from 'expo-router';
 import {
-  LEDGER_BG,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerHeaderRow,
   ledgerSection,
   ledgerRow,
+  useLedgerTheme,
 } from '../../lib/ledger-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Text, ThemeToggle, BottomSheetModal } from '../../components';
@@ -39,6 +36,7 @@ export default function SettingsScreen() {
   const { colors, preference } = useTheme();
   const colorScheme = useColorScheme();
   const { hideAmounts, setHideAmounts } = useHideAmounts();
+  const { ledgerBg, ledgerText, ledgerDim, ledgerLine, ledgerPrimary, ledgerDimColor } = useLedgerTheme();
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(true);
@@ -93,10 +91,10 @@ export default function SettingsScreen() {
         : 'Light';
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: LEDGER_BG }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: ledgerBg }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[ledgerHeader, { paddingBottom: spacing.md }]}>
@@ -129,7 +127,7 @@ export default function SettingsScreen() {
             <Switch
               value={hideAmounts}
               onValueChange={setHideAmounts}
-              trackColor={{ false: '#1a0a0a', true: '#B91C1C' }}
+              trackColor={{ false: ledgerDimColor + '40', true: ledgerPrimary }}
               thumbColor="#fff"
             />
           </View>
@@ -147,7 +145,7 @@ export default function SettingsScreen() {
             <Switch
               value={pushEnabled}
               onValueChange={setPushEnabledAndStore}
-              trackColor={{ false: '#1a0a0a', true: '#B91C1C' }}
+              trackColor={{ false: ledgerDimColor + '40', true: ledgerPrimary }}
               thumbColor="#fff"
             />
           </View>
@@ -166,14 +164,14 @@ export default function SettingsScreen() {
             onPress={() => openLink(process.env.EXPO_PUBLIC_TERMS_URL, 'TERMS_URL')}
           >
             <Text style={[ledgerText(), { fontSize: 14 }]}>Terms of Service</Text>
-            <Ionicons name="chevron-forward" size={16} color="#7F1D1D" />
+            <Ionicons name="chevron-forward" size={16} color={ledgerDimColor} />
           </Pressable>
           <Pressable
             style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
             onPress={() => openLink(process.env.EXPO_PUBLIC_PRIVACY_URL, 'PRIVACY_URL')}
           >
             <Text style={[ledgerText(), { fontSize: 14 }]}>Privacy Policy</Text>
-            <Ionicons name="chevron-forward" size={16} color="#7F1D1D" />
+            <Ionicons name="chevron-forward" size={16} color={ledgerDimColor} />
           </Pressable>
           <View style={ledgerLine} />
         </View>
@@ -186,21 +184,21 @@ export default function SettingsScreen() {
             onPress={() => router.push('/change-password')}
           >
             <Text style={[ledgerText(), { fontSize: 14 }]}>Change password</Text>
-            <Ionicons name="chevron-forward" size={16} color="#7F1D1D" />
+            <Ionicons name="chevron-forward" size={16} color={ledgerDimColor} />
           </Pressable>
           <Pressable
             style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
             onPress={handleSignOut}
           >
             <Text style={[ledgerText(), { fontSize: 14 }]}>Sign out</Text>
-            <Ionicons name="chevron-forward" size={16} color="#7F1D1D" />
+            <Ionicons name="chevron-forward" size={16} color={ledgerDimColor} />
           </Pressable>
           <Pressable
             style={({ pressed }) => [ledgerRow, pressed && { opacity: 0.7 }]}
             onPress={() => setDeleteSheetOpen(true)}
           >
-            <Text style={[ledgerText(), { fontSize: 14, color: '#DC2626' }]}>Delete account</Text>
-            <Ionicons name="chevron-forward" size={16} color="#7F1D1D" />
+            <Text style={[ledgerText(), { fontSize: 14, color: colors.error }]}>Delete account</Text>
+            <Ionicons name="chevron-forward" size={16} color={ledgerDimColor} />
           </Pressable>
           <View style={ledgerLine} />
         </View>

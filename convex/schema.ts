@@ -108,6 +108,7 @@ export default defineSchema({
     targetDate: v.string(), // YYYY-MM-DD
     startedTotalDebtCents: v.optional(v.number()), // snapshot when plan was set
     monthlyExtraCents: v.optional(v.number()), // extra $ toward debt each month
+    applySurplusToDebt: v.optional(v.boolean()), // when true, add forecasted/actual surplus to monthly extra
   }).index('by_user', ['userId']),
 
   // Recurring monthly expenses (bills) for income target
@@ -140,6 +141,17 @@ export default defineSchema({
   })
     .index('by_user', ['userId'])
     .index('by_user_date', ['userId', 'date']),
+
+  // Track when bills/credit payments were paid for a given month
+  paymentRecords: defineTable({
+    userId: v.string(),
+    type: v.string(), // 'bill' | 'credit'
+    refId: v.string(), // recurringBills._id or accounts._id
+    month: v.string(), // YYYY-MM
+    paidAt: v.optional(v.string()), // YYYY-MM-DD when marked paid
+  })
+    .index('by_user', ['userId'])
+    .index('by_user_ref_month', ['userId', 'refId', 'type', 'month']),
 
   // Potential jobs/opportunities for forecasting
   incomeForecasts: defineTable({

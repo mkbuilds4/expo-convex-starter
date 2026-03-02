@@ -16,6 +16,7 @@ import type * as debt from "../debt.js";
 import type * as http from "../http.js";
 import type * as income from "../income.js";
 import type * as networth from "../networth.js";
+import type * as paymentsCalendar from "../paymentsCalendar.js";
 import type * as plaid from "../plaid.js";
 import type * as statementExtract from "../statementExtract.js";
 import type * as tasks from "../tasks.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   income: typeof income;
   networth: typeof networth;
+  paymentsCalendar: typeof paymentsCalendar;
   plaid: typeof plaid;
   statementExtract: typeof statementExtract;
   tasks: typeof tasks;

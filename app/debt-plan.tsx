@@ -1,26 +1,24 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Modal, Switch, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../convex/_generated/api';
-import { spacing } from '../lib/theme';
+import { useTheme } from '../lib/theme-context';
+import { spacing, radii } from '../lib/theme';
 import {
-  LEDGER_BG,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerHeaderRow,
   ledgerSection,
   ledgerRow,
-  ledgerBtn,
   ledgerEmpty,
+  LEDGER_FONT,
+  useLedgerTheme,
 } from '../lib/ledger-theme';
 import { useLedgerAccent } from '../lib/financial-state-context';
 import { formatCurrency, formatDateLong } from '../lib/format';
 import { parseAmountToCents } from '../lib/format';
-import { Text, Button, Input, BackHeader } from '../components';
+import { Text, Input, BackHeader } from '../components';
 import Toast from 'react-native-toast-message';
 
 function parseDateInput(input: string): string | null {
@@ -37,7 +35,9 @@ function parseDateInput(input: string): string | null {
 export default function DebtPlanScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { accent } = useLedgerAccent();
+  const { colors } = useTheme();
+  const { ledgerBg, ledgerText, ledgerDim, ledgerLine, ledgerBtn, resolvedScheme } = useLedgerTheme();
+  const { accent, accentDim } = useLedgerAccent();
   const data = useQuery(api.debt.getDebtPayoffProjection);
   const billsTotalCents = useQuery(api.bills.getTotalMonthlyCents) ?? 0;
   const incomeSummary = useQuery(api.income.getIncomeSummary);
@@ -46,6 +46,7 @@ export default function DebtPlanScreen() {
   const [planOpen, setPlanOpen] = useState(false);
   const [targetDateInput, setTargetDateInput] = useState('');
   const [extraInput, setExtraInput] = useState('');
+  const [applySurplusInput, setApplySurplusInput] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const handleSavePlan = async () => {
@@ -59,11 +60,13 @@ export default function DebtPlanScreen() {
       await setPlan({
         targetDate,
         monthlyExtraCents: extraInput.trim() ? parseAmountToCents(extraInput) : undefined,
+        applySurplusToDebt: applySurplusInput,
       });
       Toast.show({ type: 'success', text1: 'Mission updated' });
       setPlanOpen(false);
       setTargetDateInput('');
       setExtraInput('');
+      setApplySurplusInput(false);
     } catch (e) {
       Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Failed' });
     } finally {
@@ -78,12 +81,13 @@ export default function DebtPlanScreen() {
         ? (data.monthlyExtraCents / 100).toFixed(2)
         : ''
     );
+    setApplySurplusInput(data?.applySurplusToDebt ?? false);
     setPlanOpen(true);
   };
 
   if (data === undefined) {
     return (
-      <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+      <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
         <BackHeader title="Debt plan" onBack={() => router.back()} variant="ledger" />
         <View style={[ledgerSection, styles.centered]}>
           <Text style={ledgerDim({ fontSize: 14 })}>Loading…</Text>
@@ -106,10 +110,10 @@ export default function DebtPlanScreen() {
   const isSurplus = surplusCents >= 0;
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xxl, backgroundColor: LEDGER_BG }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xxl, backgroundColor: ledgerBg }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[ledgerHeader, { paddingBottom: spacing.md }]}>
@@ -148,7 +152,7 @@ export default function DebtPlanScreen() {
               </View>
               <View style={ledgerRow}>
                 <Text style={ledgerDim({ fontSize: 12 })}>Vs need</Text>
-                <Text style={[ledgerText({ fontSize: 14 }), isShortfall && { color: '#DC2626' }, isSurplus && surplusCents > 0 && { color: '#15803d' }]}>
+                <Text style={[ledgerText({ fontSize: 14 }), isShortfall && { color: colors.error }, isSurplus && surplusCents > 0 && { color: colors.primary }]}>
                   {isSurplus ? '+' : ''}{formatCurrency(surplusCents)} {isShortfall ? 'short' : 'surplus'}
                 </Text>
               </View>
@@ -179,6 +183,7 @@ export default function DebtPlanScreen() {
                   <Text style={ledgerDim({ fontSize: 11 })}>
                     {formatCurrency(totalMinimums)} min
                     {(data.monthlyExtraCents ?? 0) > 0 ? ` + ${formatCurrency(data.monthlyExtraCents ?? 0)} extra` : ''}
+                    {(data.applySurplusToDebt && (data.surplusCentsUsed ?? 0) > 0) ? ` + ${formatCurrency(data.surplusCentsUsed ?? 0)} surplus` : ''}
                   </Text>
                 </View>
               )}
@@ -192,7 +197,7 @@ export default function DebtPlanScreen() {
                 <View style={ledgerLine} />
                 {addMoreToHitTarget > 0 ? (
                   <View style={ledgerRow}>
-                    <Text style={[ledgerText({ fontSize: 14 }), { color: '#DC2626' }]}>Add {formatCurrency(addMoreToHitTarget)}/mo</Text>
+                    <Text style={[ledgerText({ fontSize: 14 }), { color: colors.error }]}>Add {formatCurrency(addMoreToHitTarget)}/mo</Text>
                     <Text style={ledgerDim({ fontSize: 11 })}>on top of minimums</Text>
                   </View>
                 ) : (
@@ -221,8 +226,15 @@ export default function DebtPlanScreen() {
                   </View>
                   <View style={ledgerRow}>
                     <Text style={ledgerDim({ fontSize: 12 })}>Projected</Text>
-                    <Text style={[ledgerText({ fontSize: 14 }), !onTrack && { color: '#DC2626' }]}>
+                    <Text style={[ledgerText({ fontSize: 14 }), !onTrack && { color: colors.error }]}>
                       {formatDateLong(projectedDate)} {onTrack ? '' : '(behind)'}
+                    </Text>
+                  </View>
+                  <View style={[ledgerRow, { paddingVertical: spacing.xs }]}>
+                    <Text style={ledgerDim({ fontSize: 11 })}>
+                      {data.applySurplusToDebt && (data.surplusCentsUsed ?? 0) > 0
+                        ? 'Based on min + extra + surplus'
+                        : 'Based on min + extra'}
                     </Text>
                   </View>
                 </>
@@ -259,36 +271,80 @@ export default function DebtPlanScreen() {
       </ScrollView>
 
       <Modal visible={planOpen} animationType="slide" transparent>
-        <View style={[styles.modalOverlay, { backgroundColor: LEDGER_BG }]}>
+        <View style={[styles.modalOverlay, { backgroundColor: ledgerBg }]}>
           <View style={styles.modalCardWrap}>
-            <View style={[styles.modalCard, { backgroundColor: '#0a0a0a', borderWidth: 1, borderColor: accent }]}>
-              <Text style={ledgerText({ fontSize: 16 })}>SET FINISH LINE</Text>
-              <Text style={[ledgerDim(), { marginBottom: spacing.sm }]}>Debt-free date (YYYY-MM-DD)</Text>
+            <View style={[styles.modalCard, { borderColor: accentDim + '80', backgroundColor: accentDim + '15' }]}>
+              <Text style={[ledgerText(), styles.modalTitle]}>SET FINISH LINE</Text>
+              <View style={[styles.modalTitleLine, { backgroundColor: accent }]} />
+              <Text style={[ledgerDim(), { fontSize: 12, marginBottom: spacing.xs }]}>Debt-free date (YYYY-MM-DD)</Text>
               <Input
                 placeholder="2027-12-31"
-                placeholderTextColor={accent}
                 value={targetDateInput}
                 onChangeText={setTargetDateInput}
-                style={[styles.modalInput, { borderColor: accent, color: accent }]}
+                style={[
+                  styles.modalInput,
+                  {
+                    borderColor: accentDim + '80',
+                    color: accent,
+                    backgroundColor: resolvedScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                  },
+                ]}
+                placeholderTextColor={accentDim + 'aa'}
               />
+              <Text style={[ledgerDim(), { fontSize: 12, marginBottom: spacing.xs }]}>Extra per month (optional)</Text>
               <Input
-                placeholder="Extra per month (optional) e.g. 200"
-                placeholderTextColor={accent}
+                placeholder="e.g. 200"
                 value={extraInput}
                 onChangeText={setExtraInput}
                 keyboardType="decimal-pad"
-                style={[styles.modalInput, { borderColor: accent, color: accent }]}
+                style={[
+                  styles.modalInput,
+                  {
+                    borderColor: accentDim + '80',
+                    color: accent,
+                    backgroundColor: resolvedScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                  },
+                ]}
+                placeholderTextColor={accentDim + 'aa'}
               />
+              <View style={[ledgerRow, { marginTop: spacing.lg, marginBottom: spacing.sm }]}>
+                <Text style={[ledgerDim({ fontSize: 14 }), { flex: 1 }]}>Apply surplus to debt</Text>
+                <Switch
+                  value={applySurplusInput}
+                  onValueChange={setApplySurplusInput}
+                  trackColor={{ false: accentDim + '60', true: accent + '80' }}
+                  thumbColor={applySurplusInput ? accent : accentDim}
+                />
+              </View>
+              <Text style={[ledgerDim(), { fontSize: 11, marginBottom: spacing.md }]}>
+                When on, forecasted surplus (projected income − bills − min − extra) is added to your monthly debt payment.
+              </Text>
               <View style={styles.modalActions}>
-                <Pressable style={({ pressed }) => [ledgerBtn, styles.modalBtn, pressed && { opacity: 0.7 }]} onPress={handleSavePlan} disabled={saving}>
-                  <Text style={ledgerText({ fontSize: 14 })}>{saving ? '…' : 'SAVE'}</Text>
+                <Pressable
+                  onPress={handleSavePlan}
+                  disabled={saving}
+                  style={({ pressed }) => [
+                    styles.modalBtnPrimary,
+                    { backgroundColor: accent },
+                    (saving || pressed) && { opacity: pressed ? 0.9 : 0.8 },
+                  ]}
+                >
+                  {saving ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.modalBtnPrimaryText}>SAVE</Text>
+                  )}
                 </Pressable>
                 <Pressable
-                  style={({ pressed }) => [styles.modalCancel, pressed && { opacity: 0.7 }]}
-                  onPress={() => { setPlanOpen(false); setTargetDateInput(''); setExtraInput(''); }}
+                  onPress={() => { setPlanOpen(false); setTargetDateInput(''); setExtraInput(''); setApplySurplusInput(false); }}
                   disabled={saving}
+                  style={({ pressed }) => [
+                    styles.modalBtnSecondary,
+                    { borderColor: accentDim },
+                    pressed && { opacity: 0.8 },
+                  ]}
                 >
-                  <Text style={ledgerDim({ fontSize: 14 })}>Cancel</Text>
+                  <Text style={[ledgerText({ fontSize: 14 }), { color: accent }]}>Cancel</Text>
                 </Pressable>
               </View>
             </View>
@@ -315,9 +371,46 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   modalCardWrap: { maxWidth: 400, width: '100%', alignSelf: 'center' },
-  modalCard: { padding: spacing.xl },
-  modalInput: { backgroundColor: '#0a0a0a', borderWidth: 1 },
-  modalActions: { gap: spacing.sm, marginTop: spacing.md },
-  modalBtn: { width: '100%' },
-  modalCancel: { alignItems: 'center', paddingVertical: spacing.sm },
+  modalCard: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.xl,
+    overflow: 'hidden',
+  },
+  modalTitle: { fontSize: 18, letterSpacing: 0.5, marginBottom: spacing.sm },
+  modalTitleLine: {
+    height: 1,
+    opacity: 0.5,
+    marginBottom: spacing.lg,
+  },
+  modalInput: {
+    borderWidth: 1,
+    marginBottom: spacing.md,
+  },
+  modalActions: { gap: spacing.md, marginTop: spacing.xl },
+  modalBtnPrimary: {
+    minHeight: 44,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.md,
+    width: '100%',
+  },
+  modalBtnPrimaryText: {
+    fontFamily: LEDGER_FONT,
+    fontSize: 16,
+    fontWeight: '500' as const,
+    color: '#fff',
+  },
+  modalBtnSecondary: {
+    minHeight: 44,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.md,
+    width: '100%',
+    borderWidth: 1,
+  },
 });

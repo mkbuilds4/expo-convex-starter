@@ -7,17 +7,13 @@ import { api } from '../../convex/_generated/api';
 import { useTheme } from '../../lib/theme-context';
 import { spacing } from '../../lib/theme';
 import {
-  LEDGER_BG,
-  ledgerText,
-  ledgerDim,
-  ledgerLine,
   ledgerHeader,
   ledgerHeaderRow,
-  ledgerBtn,
   ledgerSummaryRow,
   ledgerSection,
   ledgerRow,
   ledgerEmpty,
+  useLedgerTheme,
 } from '../../lib/ledger-theme';
 import { formatCurrency, formatCurrencyOrHide } from '../../lib/format';
 import { useHideAmounts } from '../../lib/hide-amounts-context';
@@ -29,6 +25,7 @@ export default function NetWorthScreen() {
   const router = useRouter();
   const { hideAmounts } = useHideAmounts();
   const { colors } = useTheme();
+  const { ledgerBg, ledgerText, ledgerDim, ledgerLine, ledgerBtn, ledgerPrimary } = useLedgerTheme();
   const summary = useQuery(api.networth.getSummary);
   const snapshots = useQuery(api.networth.getSnapshotHistory, { limit: 14 });
   const saveSnapshot = useMutation(api.networth.saveSnapshot);
@@ -55,10 +52,10 @@ export default function NetWorthScreen() {
   };
 
   return (
-    <View style={[styles.screen, { backgroundColor: LEDGER_BG }]}>
+    <View style={[styles.screen, { backgroundColor: ledgerBg }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: LEDGER_BG }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, backgroundColor: ledgerBg }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[ledgerHeader, { paddingBottom: spacing.md }]}>
@@ -83,7 +80,7 @@ export default function NetWorthScreen() {
             <Text
               style={[
                 ledgerText(),
-                { fontSize: 16, color: netWorth >= 0 ? '#B91C1C' : '#DC2626' },
+                { fontSize: 16, color: netWorth >= 0 ? ledgerPrimary : colors.error },
               ]}
             >
               {formatCurrencyOrHide(netWorth, hideAmounts)}
